@@ -2,10 +2,10 @@ use rulinalg::vector::Vector;
 use rulinalg::matrix::Matrix;
 use rulinalg::matrix::BaseMatrix;
 use rand::XorShiftRng;
-use rand::Rng;
 use num_traits::float::Float;
-use std::iter::FromIterator;
 use train::Test;
+use netstruct::NetStruct;
+use netstruct::NetStructTrait;
 
 pub fn sigmoid(x: f64) -> f64 {
     1.0 / (1.0 + 2.0.powf(-x))
@@ -13,76 +13,6 @@ pub fn sigmoid(x: f64) -> f64 {
 pub fn sigmoid_prime(x: f64) -> f64 {
     sigmoid(x) * (1.0 - sigmoid(x))
 }
-
-
-pub type NetStruct = Vec<Vec<Vector<f64>>>;
-pub trait NetStructTrait {
-    fn random(structure: &Vec<usize>, my_rand: &mut XorShiftRng) -> Self;
-    fn apply(&self, fun : &Fn(f64) -> f64) -> Self;
-    fn add(&self, other  : &Self) -> Self;
-    fn to_vector(&self)->Vector<f64>;
-    fn from_vector(source : &Vector<f64>, structure : &Vec<usize>)->Self;
-}
-impl NetStructTrait for NetStruct {
-    fn random(structure: &Vec<usize>, my_rand: &mut XorShiftRng) -> Self {
-        (structure.iter().zip(structure.iter().skip(1)).map(|(&prev,
-          &next)| {
-            (0..next)
-                .map(|_| {
-                    Vector::from(my_rand.gen_iter().take(prev).collect::<Vec<f64>>())*0.1
-                })
-                .collect::<Vec<Vector<f64>>>()
-        })).collect()
-    }
-    fn add(&self, other: &NetStruct) -> NetStruct {
-        let mut net = self.clone();
-        for layer in 0..net.len() {
-            for neur in 0..net[layer].len() {
-                let s =
-                    Vector::from_iter(net[layer][neur].iter().zip(other[layer][neur].iter()).map(
-                        |(a, b)| a + b,
-                    ));
-                net[layer][neur] = s;
-            }
-        }
-        net
-    }
-    fn apply(&self, f: &Fn(f64) -> f64) -> NetStruct {
-        let mut net = self.clone();
-        for layer in 0..net.len() {
-            for neur in 0..net[layer].len() {
-                let s = net[layer][neur].clone().apply(f);
-                net[layer][neur] = s;
-            }
-        }
-        net
-    }
-    fn to_vector(&self)->Vector<f64>{
-        let mut to_ret = vec![];
-        for layer in 0..self.len() {
-            for neur in 0..self[layer].len() {
-                for coef in 0..self[layer][neur].size(){
-                    to_ret.push(self[layer][neur][coef]);
-                }
-            }
-        }
-        Vector::from(to_ret)
-    }
-    fn from_vector(vec : &Vector<f64>, structure : &Vec<usize>)->Self{
-        let mut i = 0;
-        (structure.iter().zip(structure.iter().skip(1)).map(|(&prev,
-                                                                 &next)| {
-            (0..next)
-                .map(|_| {
-                    Vector::from((0..prev).map(|_|{i+=1;vec[i-1]}).collect::<Vec<f64>>())
-                })
-                .collect::<Vec<Vector<f64>>>()
-        })).collect()
-    }
-}
-
-
-
 
 #[derive(Debug, Clone)]
 pub struct Network {
@@ -216,3 +146,6 @@ impl Network {
         grad
     }
 }
+
+
+

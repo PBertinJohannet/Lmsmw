@@ -6,6 +6,7 @@ use rand::XorShiftRng;
 use rand::Rng;
 mod network;
 mod train;
+mod netstruct;
 use train::Test;
 use train::BackPropTrainer;
 use train::Trainer;

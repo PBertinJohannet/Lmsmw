@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
-use network::NetStruct;
+use netstruct::NetStruct;
 use network::Network;
-use network::NetStructTrait;
+use netstruct::NetStructTrait;
 use rulinalg::vector::Vector;
 use rand::XorShiftRng;
 

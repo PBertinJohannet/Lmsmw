@@ -5,8 +5,10 @@ extern crate num_traits;
 use rand::XorShiftRng;
 use rand::Rng;
 mod network;
-use network::Test;
-use network::Trainer;
+mod train;
+use train::Test;
+use train::BackPropTrainer;
+use train::Trainer;
 use std::sync::Arc;
 
 
@@ -48,23 +50,22 @@ impl TrainingData for Sine {
 }
 fn main() {
     let mut my_rand = XorShiftRng::new_unseeded();
-    let tests = Arc::new(Sine::create_tests(50_000));
+    let tests = Arc::new(Sine::create_tests(500));
     println!("tests : {:?}", tests);
-    Trainer::new(tests, vec![2, 3, 3, 1], &mut my_rand)
+    BackPropTrainer::new(tests, vec![2, 3, 3, 1], &mut my_rand)
      //   .levemberg_marquardt()
-        .number_of_batches(100)
+        .number_of_batches(1)
         .step(5.6)
-        .lower_bound(0.5)
+        .lower_bound(0.7)
         .start()
         .step(0.2)
-        .lower_bound(0.5)
+        .lower_bound(0.65)
         .start()
-        .step(2.8)
-        .lower_bound(0.05)
+        .step(15.0)
+        .lower_bound(0.64)
         .start()
-        .step(0.6)
+        .step(30.0)
         .lower_bound(0.001)
         .start()
         .get_net();
-
 }

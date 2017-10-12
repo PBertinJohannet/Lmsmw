@@ -5,28 +5,13 @@ use rand::XorShiftRng;
 use rand::Rng;
 use num_traits::float::Float;
 use std::iter::FromIterator;
-use std::sync::Arc;
-
+use train::Test;
 
 pub fn sigmoid(x: f64) -> f64 {
     1.0 / (1.0 + 2.0.powf(-x))
 }
 pub fn sigmoid_prime(x: f64) -> f64 {
     sigmoid(x) * (1.0 - sigmoid(x))
-}
-
-#[derive(Debug, Clone)]
-pub struct Test {
-    inputs: Vector<f64>,
-    outputs: Vector<f64>,
-}
-impl Test {
-    pub fn new(inputs: Vector<f64>, outputs: Vector<f64>) -> Self {
-        Test {
-            inputs: inputs,
-            outputs: outputs,
-        }
-    }
 }
 
 
@@ -233,116 +218,4 @@ impl Network {
         }
         grad
     }
-}
-
-pub struct Trainer {
-    tests: Arc<Vec<Test>>,
-    net: Network,
-    lower_bound: f64,
-    step: f64,
-    mini_batches: usize,
-}
-
-impl Trainer {
-    pub fn new(tests: Arc<Vec<Test>>, structure: Vec<usize>, my_rand: &mut XorShiftRng) -> Self {
-        Trainer {
-            tests: tests,
-            net: Network::new(structure, my_rand),
-            lower_bound: 0.2,
-            step: 0.1,
-            mini_batches: 1,
-        }
-    }
-    pub fn lower_bound(&mut self, bound: f64) -> &mut Self {
-        self.lower_bound = bound;
-        self
-    }
-    pub fn step(&mut self, step: f64) -> &mut Self {
-        self.step = step;
-        self
-    }
-    pub fn number_of_batches(&mut self, mini_batch_size: usize) -> &mut Self {
-        self.mini_batches = mini_batch_size;
-        self
-    }
-    pub fn get_mini_batches(&self) -> Vec<Vec<Test>>{
-        let num_tests_per_batches = self.tests.len() / self.mini_batches;
-        let num_tougher_batches = self.tests.len() % self.mini_batches;
-        let mut offset = 0;
-        (0..self.mini_batches).map(|id| {
-            let chunksize = match id < num_tougher_batches {
-                true => num_tests_per_batches + 1,
-                false => num_tests_per_batches,
-            };
-            let to_ret = self.tests[offset..offset + chunksize].to_vec();
-            offset += chunksize;
-            to_ret
-        }).collect::<Vec<Vec<Test>>>()
-    }
-    pub fn start(&mut self) -> &mut Self {
-        println!("start net : {:?}", self.net);
-        let mut i = 0;
-        #[allow(dead_code)]
-        let mut score = self.net.evaluate(&self.tests);
-        while self.net.evaluate(&self.tests) > self.lower_bound {
-            i += 1;
-            for batch in self.get_mini_batches() {
-                let l = batch.len();
-                let glob_grad = train(&Arc::new(batch), &self.net);
-                self.net.add_gradient(
-                    &glob_grad,
-                    self.step / (l as f64),
-                );
-            }
-            score = self.net.evaluate(&self.tests);
-            println!(
-                "epoch : {}, eval after : {}",
-                i,
-                score
-            );
-        }
-        self
-    }
-    #[allow(dead_code)]
-    pub fn levemberg_marquardt(&mut self) -> &mut Self {
-        self.net.levemberg_marquardt();
-        self
-    }
-    pub fn get_net(&self)->Network{
-        self.net.clone()
-    }
-}
-
-
-pub fn train(tests: &Arc<Vec<Test>>, nn: &Network) -> NetStruct {
-    use std::sync::mpsc;
-    use std::thread;
-    const NTHREADS: usize = 8;
-    let (tx, rx) = mpsc::channel();
-    {
-        let num_tasks_per_thread = tests.len() / NTHREADS;
-        let num_tougher_threads = tests.len() % NTHREADS;
-        let mut offset = 0;
-        for id in 0..NTHREADS {
-            let chunksize = if id < num_tougher_threads {
-                num_tasks_per_thread + 1
-            } else {
-                num_tasks_per_thread
-            };
-            let my_tests = tests.clone();
-            let my_tx = tx.clone();
-            let new_net = nn.clone();
-            thread::spawn(move || {
-                let end = offset + chunksize;
-                let grad = new_net.global_gradient(&my_tests[offset..end]);
-                my_tx.send(grad).unwrap();
-            });
-            offset += chunksize;
-        }
-    }
-    drop(tx);
-    rx.iter().fold(
-        nn.get_empty_grad(),
-        |base, grad| base.add(&grad),
-    )
 }

@@ -6,7 +6,6 @@ use network::Network;
 use network::NetStructTrait;
 use rulinalg::vector::Vector;
 use rand::XorShiftRng;
-use rand::Rng;
 
 #[derive(Debug, Clone)]
 pub struct Test {
@@ -19,31 +18,6 @@ impl Test {
             inputs: inputs,
             outputs: outputs,
         }
-    }
-}
-
-
-pub trait CoefCalculator<T : Send + 'static> {
-    fn calc_result(&self, tests: &[Test]) -> T;
-    fn add_result(&self, &T, &T) -> T;
-    fn get_net(&self)->Network;
-    fn get_empty_val(&self)->T;
-}
-
-type BackPropagationCalculator = Network;
-
-impl CoefCalculator<NetStruct> for BackPropagationCalculator {
-    fn get_net(&self)->Network{
-        self.clone()
-    }
-    fn calc_result(&self, tests: &[Test]) -> NetStruct{
-        self.global_gradient(tests)
-    }
-    fn add_result(&self, first : &NetStruct, second : &NetStruct) -> NetStruct{
-        first.add(second)
-    }
-    fn get_empty_val(&self)->NetStruct{
-        self.get_empty_grad()
     }
 }
 
@@ -105,6 +79,10 @@ pub trait Trainer<T : Send+ 'static, U: CoefCalculator<T> + Sync + Send+ 'static
 }
 
 
+
+
+
+
 pub struct BackPropTrainer {
     tests: Arc<Vec<Test>>,
     back_prop_calc: BackPropagationCalculator,
@@ -134,7 +112,7 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         let mut i = 0;
         #[allow(dead_code)]
         let mut score = self.get_net().evaluate(&self.tests);
-        while self.get_net().evaluate(&self.tests) > self.lower_bound {
+        while score > self.lower_bound {
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();
@@ -186,6 +164,33 @@ impl BackPropTrainer {
     pub fn number_of_batches(&mut self, mini_batch_size: usize) -> &mut Self {
         self.mini_batches = mini_batch_size;
         self
+    }
+}
+
+
+
+
+pub trait CoefCalculator<T : Send + 'static> {
+    fn calc_result(&self, tests: &[Test]) -> T;
+    fn add_result(&self, &T, &T) -> T;
+    fn get_net(&self)->Network;
+    fn get_empty_val(&self)->T;
+}
+
+type BackPropagationCalculator = Network;
+
+impl CoefCalculator<NetStruct> for BackPropagationCalculator {
+    fn get_net(&self)->Network{
+        self.clone()
+    }
+    fn calc_result(&self, tests: &[Test]) -> NetStruct{
+        self.global_gradient(tests)
+    }
+    fn add_result(&self, first : &NetStruct, second : &NetStruct) -> NetStruct{
+        first.add(second)
+    }
+    fn get_empty_val(&self)->NetStruct{
+        self.get_empty_grad()
     }
 }
 

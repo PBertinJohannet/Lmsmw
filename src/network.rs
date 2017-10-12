@@ -102,9 +102,6 @@ impl Network {
             nb_coef:(structure.iter().zip(structure.iter().skip(1)).map(|(&prev, &next)| next * prev)).sum(),
         }
     }
-    pub fn levemberg_marquardt(&mut self)->&mut Self {
-        self
-    }
     pub fn feed_forward(&self, input: &Vector<f64>) -> Vector<f64> {
         self.weights.iter().fold(input.clone(), |prev, layer| {
             Vector::from(

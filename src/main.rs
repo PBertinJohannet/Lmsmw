@@ -7,8 +7,9 @@ use rand::Rng;
 mod network;
 mod train;
 mod netstruct;
+mod backpropagation;
 use train::Test;
-use train::BackPropTrainer;
+use backpropagation::BackPropTrainer;
 use train::Trainer;
 use std::sync::Arc;
 

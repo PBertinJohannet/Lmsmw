@@ -4,14 +4,17 @@ extern crate rand;
 extern crate num_traits;
 use rand::XorShiftRng;
 use rand::Rng;
+#[macro_use]
 mod network;
 mod train;
 mod netstruct;
 mod backpropagation;
+mod lvbm;
 use train::Test;
 use backpropagation::BackPropTrainer;
 use train::Trainer;
 use std::sync::Arc;
+use network::LayerConfig;
 
 
 trait TrainingData {
@@ -52,9 +55,9 @@ impl TrainingData for Sine {
 }
 fn main() {
     let mut my_rand = XorShiftRng::new_unseeded();
-    let tests = Arc::new(Sine::create_tests(500));
+    let tests = Arc::new(GreaterThan::create_tests(500));
     println!("tests : {:?}", tests);
-    BackPropTrainer::new(tests, vec![2, 3, 3, 1], &mut my_rand)
+    BackPropTrainer::new(tests, layers![2, 2], &mut my_rand)
      //   .levemberg_marquardt()
         .number_of_batches(1)
         .step(5.6)

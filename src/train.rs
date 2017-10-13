@@ -4,6 +4,7 @@ use std::thread;
 use network::Network;
 use rulinalg::vector::Vector;
 use rand::XorShiftRng;
+use network::LayerConfig;
 
 #[derive(Debug, Clone)]
 pub struct Test {
@@ -22,15 +23,21 @@ impl Test {
 pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'static>
      {
     fn start(&mut self) -> &mut Self;
-    fn calc_result(&self, tests: &[Test]) -> T;
-    fn add_result(&self, &T, &T) -> T;
     fn get_net(&self) -> Network;
     fn get_empty_val(&self) -> T;
-    fn new(tests: Arc<Vec<Test>>, structure: Vec<usize>, my_rand: &mut XorShiftRng) -> Self;
+    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self;
     fn get_number_of_batches(&self) -> usize;
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>>;
     fn get_cloned_calculator(&self) -> U;
+    fn get_calculator<'a>(&'a self) -> &'a U;
     fn get_mut_net(&mut self) -> &mut Network;
+    fn number_of_batches(&mut self, mini_batch_size: usize) -> &mut Self;
+    fn calc_result(&self, tests: &[Test]) -> T {
+        self.get_calculator().calc_result(tests)
+    }
+    fn add_result(&self, first: &T, second: &T) -> T {
+        self.get_calculator().add_result(first, second)
+    }
     fn get_mini_batches(&self) -> Vec<Vec<Test>> {
         let num_tests_per_batches = self.get_tests().len() / self.get_number_of_batches();
         let num_tougher_batches = self.get_tests().len() % self.get_number_of_batches();

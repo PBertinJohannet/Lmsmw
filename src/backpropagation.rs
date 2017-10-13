@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::mpsc;
 use netstruct::NetStruct;
 use netstruct::NetStructTrait;
 use train::Test;
@@ -7,7 +6,7 @@ use train::Trainer;
 use train::CoefCalculator;
 use network::Network;
 use rand::XorShiftRng;
-
+use network::LayerConfig;
 pub struct BackPropTrainer {
     tests: Arc<Vec<Test>>,
     back_prop_calc: BackPropagationCalculator,
@@ -17,7 +16,7 @@ pub struct BackPropTrainer {
 }
 
 impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
-    fn new(tests: Arc<Vec<Test>>, structure: Vec<usize>, my_rand: &mut XorShiftRng) -> Self {
+    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
         BackPropTrainer {
             tests: tests,
             back_prop_calc: Network::new(structure, my_rand),
@@ -29,8 +28,15 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>> {
         &self.tests
     }
+    fn number_of_batches(&mut self, mini_batch_size: usize) -> &mut Self {
+        self.mini_batches = mini_batch_size;
+        self
+    }
     fn get_cloned_calculator(&self) -> BackPropagationCalculator {
         self.back_prop_calc.clone()
+    }
+    fn get_calculator(&self) -> &BackPropagationCalculator {
+        &self.back_prop_calc
     }
     fn start(&mut self) -> &mut Self {
         println!("start net : {:?}", self.get_net());
@@ -59,12 +65,6 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
     fn get_mut_net(&mut self) -> &mut Network {
         &mut self.back_prop_calc
     }
-    fn calc_result(&self, tests: &[Test]) -> NetStruct {
-        self.back_prop_calc.global_gradient(tests)
-    }
-    fn add_result(&self, first: &NetStruct, second: &NetStruct) -> NetStruct {
-        first.add(second)
-    }
     fn get_number_of_batches(&self) -> usize {
         self.mini_batches
     }
@@ -82,10 +82,6 @@ impl BackPropTrainer {
         self.step = step;
         self
     }
-    pub fn number_of_batches(&mut self, mini_batch_size: usize) -> &mut Self {
-        self.mini_batches = mini_batch_size;
-        self
-    }
 }
 
 
@@ -97,7 +93,7 @@ impl CoefCalculator<NetStruct> for BackPropagationCalculator {
         self.clone()
     }
     fn calc_result(&self, tests: &[Test]) -> NetStruct {
-        self.global_gradient(tests)
+        self.global_gradient(tests, true)
     }
     fn add_result(&self, first: &NetStruct, second: &NetStruct) -> NetStruct {
         first.add(second)

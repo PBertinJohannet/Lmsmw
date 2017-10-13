@@ -7,40 +7,84 @@ use train::Test;
 use netstruct::NetStruct;
 use netstruct::NetStructTrait;
 
-pub fn sigmoid(x: f64) -> f64 {
-    1.0 / (1.0 + (-x).exp())
+
+
+macro_rules! layers {
+    ( $( $x:expr),* ) => {
+        {
+            let mut temp_vec = Vec::new();
+            $( temp_vec.push(LayerConfig::new($x));)*
+            temp_vec
+        }
+    }
 }
-pub fn sigmoid_prime(x: f64) -> f64 {
-    sigmoid(x) * (1.0 - sigmoid(x))
+
+
+#[derive(Debug, Clone)]
+pub enum EvalFunc {
+    Sigmoid,
+    Identity,
+}
+#[derive(Debug, Clone)]
+pub struct LayerConfig {
+    nb_neurs: usize,
+    eval_fun : EvalFunc,
+}
+impl LayerConfig {
+    pub fn new(nb_neurs : usize) -> Self{
+        LayerConfig{nb_neurs : nb_neurs, eval_fun : EvalFunc::Sigmoid}
+    }
+    fn eval_function(&mut self, func : EvalFunc)-> &mut Self{
+        self.eval_fun = func;
+        self
+    }
+    fn get_num(&self) -> usize{
+        self.nb_neurs
+    }
+}
+
+fn get_eval(func : &EvalFunc) -> (fn(f64)->f64){
+    match func {
+        &EvalFunc::Sigmoid => |x| 1.0 / (1.0 + (-x).exp()),
+        &EvalFunc::Identity => |_| x,
+    }
+}
+
+
+fn get_prime(func : &EvalFunc) -> (fn(f64)->f64){
+    match func {
+        &EvalFunc::Sigmoid => |x|{ let a =  1.0 / (1.0 + (-x).exp()); a * (1.0 - a)},
+        &EvalFunc::Identity => |x| 1.0,
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Network {
     num_layers: usize,
-    sizes: Vec<usize>,
+    layers: Vec<LayerConfig>,
     weights: NetStruct,
     nb_coef: usize,
 }
 
 
 impl Network {
-    pub fn new(structure: Vec<usize>, my_rand: &mut XorShiftRng) -> Self {
+    pub fn new(structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
         Network {
             num_layers: structure.len(),
-            sizes: structure.clone(),
-            weights: NetStructTrait::random(&structure, my_rand),
-            nb_coef: (structure.iter().zip(structure.iter().skip(1)).map(|(&prev,
-              &next)| {
-                next * prev
+            layers: structure.clone(),
+            weights: NetStructTrait::random(&structure.iter().map(|x|x.get_num()).collect(), my_rand),
+            nb_coef: (structure.iter().zip(structure.iter().skip(1)).map(|(ref prev,
+              ref next)| {
+                next.get_num() * prev.get_num()
             })).sum(),
         }
     }
     pub fn feed_forward(&self, input: &Vector<f64>) -> Vector<f64> {
-        self.weights.iter().fold(input.clone(), |prev, layer| {
+        self.weights.iter().enumerate().fold(input.clone(), |prev, (nb, layer)| {
             Vector::from(
                 layer
                     .iter()
-                    .map(|neur| sigmoid(*&neur.elemul(&prev).sum()))
+                    .map(|neur| get_eval(&self.layers[nb].eval_fun)(*&neur.elemul(&prev).sum()))
                     .collect::<Vec<f64>>(),
             )
         })
@@ -59,18 +103,18 @@ impl Network {
         output - desired
     }
     pub fn get_empty_grad(&self) -> NetStruct {
-        (self.sizes.iter().zip(self.sizes.iter().skip(1)).map(
-            |(&prev,
-              &next)| {
-                (0..next)
-                    .map(|_| Vector::zeros(prev))
+        (self.layers.iter().zip(self.layers.iter().skip(1)).map(
+            |(ref prev,
+              ref next)| {
+                (0..next.get_num())
+                    .map(|_| Vector::zeros(prev.get_num()))
                     .collect::<Vec<Vector<f64>>>()
             },
         )).collect::<Vec<_>>()
     }
-    pub fn global_gradient(&self, tests: &[Test]) -> NetStruct {
+    pub fn global_gradient(&self, tests: &[Test], from_cost : bool) -> NetStruct {
         tests.iter().fold(self.get_empty_grad(), |grad, test| {
-            grad.add(&self.back_propagation(&test.inputs, &test.outputs, true))
+            grad.add(&self.back_propagation(&test.inputs, &test.outputs, from_cost))
         })
     }
     pub fn add_gradient(&mut self, grad: &NetStruct, coef: f64) {
@@ -94,14 +138,14 @@ impl Network {
     ) -> (Vec<Vector<f64>>, Vec<Vector<f64>>) {
         let mut activations = vec![input.clone()];
         let mut z_vecs = vec![];
-        for ref layer in self.weights.iter() {
+        for (layer_id, ref layer) in self.weights.iter().enumerate() {
             z_vecs.push(Vector::from(
                 layer
                     .iter()
-                    .map(|neur| *&neur.elemul(&activations.last().unwrap()).sum())
+                    .map(|neur| {let a = *&neur.elemul(&activations.last().unwrap()).sum(); println!("a : {}", a);a})
                     .collect::<Vec<f64>>(),
             ));
-            activations.push(z_vecs.last().unwrap().clone().apply(&sigmoid));
+            activations.push(z_vecs.last().unwrap().clone().apply(&get_eval(&self.layers[layer_id].eval_fun)));
         }
         (activations, z_vecs)
     }
@@ -113,10 +157,11 @@ impl Network {
     ) -> NetStruct {
         let mut grad = self.get_empty_grad();
         let (activations, z_vecs) = self.get_fed_layers(input, output);
-        let mut delta = z_vecs.last().unwrap().clone().apply(&sigmoid_prime);
+        let mut delta = z_vecs.last().unwrap().clone().apply(&get_prime(&self.layers.last().unwrap().eval_fun));
         if from_cost {
             delta = delta.elemul(&self.cost_derivative(activations.last().unwrap(), &output));
         }
+        println!("potentiels  : {:?}", z_vecs);
         grad[self.weights.len() - 1] = delta
             .iter()
             .map(|x| {
@@ -127,10 +172,10 @@ impl Network {
 
 
         for l_id in 2..z_vecs.len() + 1 {
-            let sig_prim = z_vecs[z_vecs.len() - l_id].clone().apply(&sigmoid_prime);
+            let sig_prim = z_vecs[z_vecs.len() - l_id].clone().apply(&get_prime(&self.layers[self.layers.len() - l_id +1].eval_fun));
             delta = (&Matrix::new(
-                self.sizes[self.sizes.len() - l_id + 1],
-                self.sizes[self.sizes.len() - l_id],
+                self.layers[self.layers.len() - l_id + 1].get_num(),
+                self.layers[self.layers.len() - l_id].get_num(),
                 self.weights[self.weights.len() - l_id + 1]
                     .clone()
                     .iter()
@@ -166,6 +211,8 @@ mod tests {
     use rand::SeedableRng;
     #[test]
     fn sigmoids() {
+        let sigmoid = get_eval(&EvalFunc::Sigmoid);
+        let sigmoid_prime = get_prime(&EvalFunc::Sigmoid);
         assert_eq![sigmoid(-2.0), 0.11920292202211755];
         assert_eq![sigmoid(2.0), 0.8807970779778823];
         assert_eq![sigmoid(0.2), 0.549833997312478];
@@ -177,7 +224,7 @@ mod tests {
     }
     #[test]
     fn feed_forward() {
-        let mut net = Network::new(vec![2, 2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers![2, 2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
         net.weights =
             NetStruct::from_vector(&vector![1.0, -1.0, 0.5, -0.5, 1.0, 0.1], &vec![2, 2, 1]);
         assert_eq![
@@ -187,29 +234,21 @@ mod tests {
     }
     #[test]
     fn back_propagation() {
-        let mut net = Network::new(vec![2, 2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut layers = layers![2, 1];
+        for l in 0..layers.len() {
+            layers[l].eval_function(EvalFunc::Identity);
+        }
+        let mut net = Network::new(layers, &mut XorShiftRng::from_seed([1, 2, 3, 4]));
         net.weights =
-            NetStruct::from_vector(&vector![1.0, -1.0, 0.5, -0.5, 1.0, 0.1], &vec![2, 2, 1]);
+            NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]);
         assert_eq![
-            net.back_propagation(&vector![0.5, -0.5], &vector![0.6], true)[0][0],
-            vector![0.0018666059307424513 as f64, -0.0018666059307424513 as f64]
-        ];
-        assert_eq![
-            net.back_propagation(&vector![0.5, -0.5], &vector![-0.6], true)
-                .to_vector(),
-            vector![
-                0.02716495892306482,
-                -0.02716495892306482,
-                0.0032469372959591913,
-                -0.0032469372959591913,
-                0.20201394626893662,
-                0.17200463760873333
-            ]
+        net.feed_forward(&vector![1.0, 3.0])   ,
+        vector![4.0 as f64]
         ];
     }
     #[test]
     fn hessian() {
-        let mut net = Network::new(vec![2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers![2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
         net.weights = NetStruct::from_vector(&vector![1.0, -1.0], &vec![2, 1]);
         assert_eq![
             net.back_propagation(&vector![0.5, -0.5], &vector![0.6], true)
@@ -238,5 +277,16 @@ mod tests {
                 ]
             )
         ];
+    }
+    fn global_hessian() {
+        let mut layers = layers![2, 1];
+        for l in 0..layers.len() {
+            layers[l].eval_function(EvalFunc::Identity);
+        }
+        let mut net = Network::new(layers, &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        net.weights =
+            NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]);
+        assert_eq![net.get_hessian(&vector![1.0,3.0], &vector![-0.3]),
+                    matrix![1.0,3.0,3.0,9.0]];
     }
 }

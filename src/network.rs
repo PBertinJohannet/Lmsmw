@@ -34,7 +34,7 @@ impl LayerConfig {
     pub fn new(nb_neurs : usize) -> Self{
         LayerConfig{nb_neurs : nb_neurs, eval_fun : EvalFunc::Sigmoid}
     }
-    fn eval_function(&mut self, func : EvalFunc)-> &mut Self{
+    pub fn eval_function(&mut self, func : EvalFunc)-> &mut Self{
         self.eval_fun = func;
         self
     }
@@ -46,7 +46,7 @@ impl LayerConfig {
 fn get_eval(func : &EvalFunc) -> (fn(f64)->f64){
     match func {
         &EvalFunc::Sigmoid => |x| 1.0 / (1.0 + (-x).exp()),
-        &EvalFunc::Identity => |_| x,
+        &EvalFunc::Identity => |x| x,
     }
 }
 
@@ -54,7 +54,7 @@ fn get_eval(func : &EvalFunc) -> (fn(f64)->f64){
 fn get_prime(func : &EvalFunc) -> (fn(f64)->f64){
     match func {
         &EvalFunc::Sigmoid => |x|{ let a =  1.0 / (1.0 + (-x).exp()); a * (1.0 - a)},
-        &EvalFunc::Identity => |x| 1.0,
+        &EvalFunc::Identity => |_| 1.0,
     }
 }
 
@@ -79,6 +79,12 @@ impl Network {
             })).sum(),
         }
     }
+    pub fn set_weights(&mut self, weights : NetStruct) {
+        self.weights = weights;
+    }
+    pub fn get_weights(&self) -> &NetStruct{
+        &self.weights
+    }
     pub fn feed_forward(&self, input: &Vector<f64>) -> Vector<f64> {
         self.weights.iter().enumerate().fold(input.clone(), |prev, (nb, layer)| {
             Vector::from(
@@ -94,13 +100,16 @@ impl Network {
              .iter()
              .map(|test| {
             (&test.outputs - self.feed_forward(&test.inputs))
-                .apply(&|x| x.abs())
+                .apply(&|x| x)
                 .sum() as f64
         })
              .sum::<f64>()) / (tests.len()) as f64
     }
     pub fn cost_derivative(&self, output: &Vector<f64>, desired: &Vector<f64>) -> Vector<f64> {
-        output - desired
+        desired - output
+    }
+    pub fn get_layers_structure(&self)->Vec<usize> {
+        self.layers.iter().map(|x|x.get_num()).collect()
     }
     pub fn get_empty_grad(&self) -> NetStruct {
         (self.layers.iter().zip(self.layers.iter().skip(1)).map(
@@ -118,7 +127,7 @@ impl Network {
         })
     }
     pub fn add_gradient(&mut self, grad: &NetStruct, coef: f64) {
-        self.weights = self.weights.add(&grad.apply(&|a| -a * coef));
+        self.weights = self.weights.add(&grad.apply(&|a| a * coef));
     }
     pub fn global_hessian(&self, tests: &[Test]) -> Matrix<f64> {
         let mut hessian = self.get_hessian(&tests[0].inputs, &tests[0].outputs);
@@ -142,7 +151,7 @@ impl Network {
             z_vecs.push(Vector::from(
                 layer
                     .iter()
-                    .map(|neur| {let a = *&neur.elemul(&activations.last().unwrap()).sum(); println!("a : {}", a);a})
+                    .map(|neur| *&neur.elemul(&activations.last().unwrap()).sum())
                     .collect::<Vec<f64>>(),
             ));
             activations.push(z_vecs.last().unwrap().clone().apply(&get_eval(&self.layers[layer_id].eval_fun)));
@@ -161,7 +170,6 @@ impl Network {
         if from_cost {
             delta = delta.elemul(&self.cost_derivative(activations.last().unwrap(), &output));
         }
-        println!("potentiels  : {:?}", z_vecs);
         grad[self.weights.len() - 1] = delta
             .iter()
             .map(|x| {
@@ -253,7 +261,7 @@ mod tests {
         assert_eq![
             net.back_propagation(&vector![0.5, -0.5], &vector![0.6], true)
                 .to_vector(),
-            vector![0.012883840256163013, -0.012883840256163013]
+            vector![-0.012883840256163013, 0.012883840256163013]
         ];
         assert_eq![
             net.feed_forward(&vector![0.5, -0.5]),
@@ -277,8 +285,6 @@ mod tests {
                 ]
             )
         ];
-    }
-    fn global_hessian() {
         let mut layers = layers![2, 1];
         for l in 0..layers.len() {
             layers[l].eval_function(EvalFunc::Identity);
@@ -286,7 +292,7 @@ mod tests {
         let mut net = Network::new(layers, &mut XorShiftRng::from_seed([1, 2, 3, 4]));
         net.weights =
             NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]);
-        assert_eq![net.get_hessian(&vector![1.0,3.0], &vector![-0.3]),
-                    matrix![1.0,3.0,3.0,9.0]];
+        assert_eq![net.get_hessian(&vector![1.0, 3.0], &vector![-0.3]),
+                    Matrix::new(2,2,vec![1.0,3.0,3.0,9.0])];
     }
 }

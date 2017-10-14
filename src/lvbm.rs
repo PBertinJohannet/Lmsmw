@@ -8,6 +8,7 @@ use train::CoefCalculator;
 use network::Network;
 use rand::XorShiftRng;
 use network::LayerConfig;
+use network::EvalFunc;
 
 #[derive(Debug)]
 pub struct Gradients{
@@ -20,15 +21,21 @@ pub struct LevembergMarquardtTrainer {
     lvbm_calc: LevembergMarquardtCalculator,
     lower_bound: f64,
     mini_batches : usize,
+    lambda : f64,
+    prev_score : f64,
 }
 
 impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrainer {
     fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
+        let net = Network::new(structure, my_rand);
+        let score = net.evaluate(&tests);
         LevembergMarquardtTrainer {
             tests: tests,
-            lvbm_calc: Network::new(structure, my_rand),
+            lvbm_calc: net,
             lower_bound: 0.2,
-            mini_batches : 1
+            mini_batches : 1,
+            lambda : 10000.0,
+            prev_score :score
         }
     }
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>> {
@@ -80,6 +87,20 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
     }
 }
 
+impl LevembergMarquardtTrainer {
+    fn calc_final(&self, grads : Gradients) -> NetStruct{
+        let dj = grads.from_cost.to_vector();
+        let diag = self.lambda+grads.hessian[[0,0]];
+        let mut hess = Matrix::from_fn(dj.size(), dj.size(), |i,j| match i==j {true => diag, false => grads.hessian[[i,j]]});
+        NetStruct::from_vector(&(&hess.inverse().expect("matrix inversion failed") * &dj),
+                    &self.get_net().get_layers_structure())
+    }
+    fn lambda(&mut self, lambda : f64) -> &mut Self {
+        self.lambda = lambda;
+        self
+    }
+}
+
 type LevembergMarquardtCalculator = Network;
 
 impl CoefCalculator<Gradients> for LevembergMarquardtCalculator {
@@ -120,10 +141,80 @@ mod tests {
     }
     #[test]
     fn one_iter() {
-        let mut my_rand = XorShiftRng::from_seed([1, 2, 3, 4]);
-        let tests = Arc::new(vec![Test::new(vector![1.0,1.1], vector![0.1])]);
-        let my_trainer = LevembergMarquardtTrainer::new(tests, layers![2, 1], &mut my_rand);
+        let mut layers = layers![2, 1];
+        for l in 0..layers.len() {
+            layers[l].eval_function(EvalFunc::Identity);
+        }
+        let mut net = Network::new(layers.clone(), &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        // test hessian calculation
+        net.set_weights(
+            NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]));
+        assert_eq![net.get_hessian(&vector![1.0,3.0], &vector![-0.3]),
+                Matrix::new(2,2,vec![1.0,3.0,3.0,9.0])];
+        assert_eq![net.get_hessian(&vector![2.0,1.0], &vector![0.4]),
+                Matrix::new(2,2,vec![4.0,2.0,2.0,1.0])];
+        assert_eq![net.get_hessian(&vector![3.0,2.0], &vector![0.5]),
+                Matrix::new(2,2,vec![9.0,6.0,6.0,4.0])];
+        assert_eq![net.global_hessian(&vec![Test::new(vector![1.0,3.0], vector![-0.3]), Test::new(vector![2.0,1.0], vector![0.4]), Test::new(vector![3.0,2.0], vector![0.5])]),
+            Matrix::new(2,2,vec![14.0,11.0,11.0,14.0])];
+        // test dJ/dc
+        assert_eq![
+        net.back_propagation(&vector![1.0,3.0], &vector![-0.3], true)
+            .to_vector(),
+            vector![-4.3, -12.899999999999999]
+        ];
+        assert_eq![
+        net.back_propagation(&vector![2.0,1.0], &vector![0.4], true)
+            .to_vector(),
+            vector![-5.2, -2.6]
+        ];
+        assert_eq![
+        net.back_propagation(&vector![3.0,2.0], &vector![0.5], true)
+            .to_vector(),
+            vector![-13.5, -9.0]
+        ];
+        assert_eq![net.global_gradient(&vec![Test::new(vector![1.0,3.0], vector![-0.3]),
+                                             Test::new(vector![2.0,1.0], vector![0.4]),
+                                             Test::new(vector![3.0,2.0], vector![0.5])], true).to_vector(),
+            vector![-23.0, -24.5]];
 
+        // test final :
+
+        let lambda = 10.0;
+        let dj = vector![-23.0, -24.5];
+        let hessian = Matrix::new(2,2,vec![14.0,11.0,11.0,14.0]);
+        let diag = lambda+hessian[[0,0]];
+        let mut hess = Matrix::from_fn(dj.size(), dj.size(), |i,j| match i==j {true => diag, false => hessian[[i,j]]});
+        assert_eq![hess, Matrix::new(2,2,vec![24.0,11.0,11.0,24.0])];
+        assert_eq![hess.clone().inverse().expect("matrix inversion failed"), Matrix::new(2,
+                                                                                         2,
+                                                                                         vec![0.05274725274725275,-0.024175824175824173
+        ,-0.024175824175824173,0.05274725274725274])];
+        NetStruct::from_vector(&(&hess.inverse().expect("matrix inversion failed") * &dj),
+                               &vec![2,1]);
+
+
+
+        // test method
+        let mut lvb = LevembergMarquardtTrainer::new(Arc::new(vec![Test::new(vector![1.0,3.0], vector![-0.3]),
+                                                           Test::new(vector![2.0,1.0], vector![0.4]),
+                                                           Test::new(vector![3.0,2.0], vector![0.5])]),
+                                                            layers,
+                                                            &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        lvb.lambda = 10.0;
+        lvb.get_mut_net().set_weights(
+            NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]));
+        let glob_grad = lvb.train(&lvb.tests);
+        println!("{:?}", glob_grad);
+        assert_eq![glob_grad.from_cost, vec![vec![vector![-23.0, -24.5]]]];
+        assert_eq![glob_grad.hessian, Matrix::new(2,2,vec![14.0,11.0,11.0,14.0])];
+        let final_grad = lvb.calc_final(glob_grad);
+        assert_eq![final_grad.to_vector(), vector![-0.6208791208791209,-0.7362637362637362]];
+        lvb.get_mut_net().add_gradient(&final_grad, 1.0);
+        assert_eq![lvb.get_net().get_weights().to_vector(), vector![0.3791208791208791, 0.2637362637362638]];
+        assert_eq![lvb.get_net().evaluate(&vec![Test::new(vector![1.0,3.0], vector![-0.3]),
+                                               Test::new(vector![2.0,1.0], vector![0.4]),
+                                               Test::new(vector![3.0,2.0], vector![0.5])]), 1.3018556535040056]
     }
 }
 

@@ -5,7 +5,7 @@ use network::Network;
 use rulinalg::vector::Vector;
 use rand::XorShiftRng;
 use network::LayerConfig;
-
+use std::cmp::min;
 #[derive(Debug, Clone)]
 pub struct Test {
     pub inputs: Vector<f64>,
@@ -55,13 +55,13 @@ pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'stati
             .collect::<Vec<Vec<Test>>>()
     }
     fn train(&self, tests: &Arc<Vec<Test>>) -> T {
-        const NTHREADS: usize = 8;
+        let nb_threads: usize = min(8,tests.len());
         let (tx, rx) = mpsc::channel();
         {
-            let num_tasks_per_thread = tests.len() / NTHREADS;
-            let num_tougher_threads = tests.len() % NTHREADS;
+            let num_tasks_per_thread = tests.len() / nb_threads;
+            let num_tougher_threads = tests.len() % nb_threads;
             let mut offset = 0;
-            for id in 0..NTHREADS {
+            for id in 0..nb_threads{
                 let chunksize = if id < num_tougher_threads {
                     num_tasks_per_thread + 1
                 } else {

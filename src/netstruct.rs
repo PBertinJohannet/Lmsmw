@@ -18,7 +18,7 @@ impl NetStructTrait for NetStruct {
           &next)| {
             (0..next)
                 .map(|_| {
-                    Vector::from(my_rand.gen_iter().take(prev).collect::<Vec<f64>>())
+                    Vector::from(my_rand.gen_iter::<f64>().map(|x|x*0.2).take(prev).collect::<Vec<f64>>())
                 })
                 .collect::<Vec<Vector<f64>>>()
         })).collect()
@@ -86,23 +86,6 @@ mod tests {
     #[test]
     fn random() {
         let mut my_rand = XorShiftRng::from_seed([1, 2, 3, 4]);
-        assert_eq![
-            NetStruct::random(&vec![3, 2], &mut my_rand),
-            vec![
-                vec![
-                    vector![
-                        0.0019655227674844067,
-                        0.0000038146990917198313,
-                        0.00007343478686872018
-                    ],
-                    vector![
-                        0.00013542734277605107,
-                        0.1278181086308321,
-                        0.15870571251203636
-                    ]
-                ]
-            ]
-        ];
         let s = NetStruct::random(&vec![3, 4, 5, 4, 18, 2], &mut my_rand);
         assert_eq![s[2][0].size(), 5];
         assert_eq![s[4][0].size(), 18];

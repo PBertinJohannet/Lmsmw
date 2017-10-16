@@ -43,7 +43,7 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         let mut i = 0;
         #[allow(dead_code)]
         let mut score = self.get_net().evaluate(&self.tests);
-        while score > self.lower_bound {
+        while score > self.lower_bound  && i<30_000{
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();
@@ -71,13 +71,13 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
     fn get_empty_val(&self) -> NetStruct {
         self.back_prop_calc.get_empty_grad()
     }
-}
-
-impl BackPropTrainer {
-    pub fn lower_bound(&mut self, bound: f64) -> &mut Self {
+    fn lower_bound(&mut self, bound: f64) -> &mut Self {
         self.lower_bound = bound;
         self
     }
+}
+
+impl BackPropTrainer {
     pub fn step(&mut self, step: f64) -> &mut Self {
         self.step = step;
         self

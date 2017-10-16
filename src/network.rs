@@ -100,7 +100,7 @@ impl Network {
              .iter()
              .map(|test| {
             (&test.outputs - self.feed_forward(&test.inputs))
-                .apply(&|x| x)
+                .apply(&|x| x.abs())
                 .sum() as f64
         })
              .sum::<f64>()) / (tests.len()) as f64
@@ -164,8 +164,15 @@ impl Network {
         output: &Vector<f64>,
         from_cost: bool,
     ) -> NetStruct {
+
+        // feed forward
+
         let mut grad = self.get_empty_grad();
         let (activations, z_vecs) = self.get_fed_layers(input, output);
+
+
+        // output derivatives
+
         let mut delta = z_vecs.last().unwrap().clone().apply(&get_prime(&self.layers.last().unwrap().eval_fun));
         if from_cost {
             delta = delta.elemul(&self.cost_derivative(activations.last().unwrap(), &output));
@@ -177,7 +184,7 @@ impl Network {
             })
             .collect::<Vec<Vector<f64>>>();
 
-
+        // back pass
 
         for l_id in 2..z_vecs.len() + 1 {
             let sig_prim = z_vecs[z_vecs.len() - l_id].clone().apply(&get_prime(&self.layers[self.layers.len() - l_id +1].eval_fun));
@@ -200,7 +207,7 @@ impl Network {
                     Vector::from(
                         activations[activations.len() - l_id - 1]
                             .iter()
-                            .map(&|a| d * a)
+                            .map(&|a| (d * a))
                             .collect::<Vec<f64>>(),
                     )
                 })

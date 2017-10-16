@@ -32,8 +32,16 @@ pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'stati
     fn get_calculator<'a>(&'a self) -> &'a U;
     fn get_mut_net(&mut self) -> &mut Network;
     fn number_of_batches(&mut self, mini_batch_size: usize) -> &mut Self;
+    fn lower_bound(&mut self, bound: f64) -> &mut Self ;
     fn calc_result(&self, tests: &[Test]) -> T {
         self.get_calculator().calc_result(tests)
+    }
+    fn show_me(&self) {
+        let net = self.get_net();
+        for i in self.get_tests().iter(){
+            println!("error : {}", (&i.outputs - net.feed_forward(&i.inputs)).sum());
+            println!("squared : {}", (&i.outputs - net.feed_forward(&i.inputs)).apply(&|x| x*x*0.5).sum())
+        }
     }
     fn add_result(&self, first: &T, second: &T) -> T {
         self.get_calculator().add_result(first, second)

@@ -17,12 +17,12 @@ pub struct Gradients{
 }
 
 pub struct LevembergMarquardtTrainer {
-    tests: Arc<Vec<Test>>,
-    lvbm_calc: LevembergMarquardtCalculator,
+    pub tests: Arc<Vec<Test>>,
+    pub lvbm_calc: LevembergMarquardtCalculator,
     lower_bound: f64,
     mini_batches : usize,
     lambda : f64,
-    prev_score : f64,
+    pub prev_score : f64,
 }
 
 impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrainer {
@@ -52,26 +52,18 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
         self
     }
     fn start(&mut self) -> &mut Self {
-        unimplemented![];/*
+
         println!("start net : {:?}", self.get_net());
         let mut i = 0;
         #[allow(dead_code)]
-        let mut score = self.get_net().evaluate(&self.tests);
-        while score > self.lower_bound {
+        while self.prev_score > self.lower_bound  && self.lambda < 10_000_000.0{
             i += 1;
-            for batch in self.get_mini_batches() {
-                let l = batch.len();
-                let glob_grad = self.train(&Arc::new(batch));
-                let step = self.step;
-                self.get_mut_net().add_gradient(
-                    &glob_grad,
-                    step / (l as f64),
-                );
-            }
-            score = self.get_net().evaluate(&self.tests);
-            println!("epoch : {}, eval after : {}", i, score);
+            let glob_grad = self.train(&self.tests);
+            self.next_iter(&glob_grad);
+            println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64,|acc,&x|match acc>x {true => acc, false =>x}));
+            println!("epoch : {}, eval after : {}\n\n\n", i, self.prev_score);
         }
-        self*/
+        self
     }
     fn get_net(&self) -> Network {
         self.lvbm_calc.clone()
@@ -85,17 +77,66 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
     fn get_empty_val(&self) -> Gradients {
         self.lvbm_calc.get_empty_val()
     }
+    fn lower_bound(&mut self, bound: f64) -> &mut Self {
+        self.lower_bound = bound;
+        self
+    }
 }
 
 impl LevembergMarquardtTrainer {
-    fn calc_final(&self, grads : Gradients) -> NetStruct{
+    fn calc_final(&self, grads : &Gradients) -> NetStruct{
         let dj = grads.from_cost.to_vector();
-        let diag = self.lambda+grads.hessian[[0,0]];
-        let mut hess = Matrix::from_fn(dj.size(), dj.size(), |i,j| match i==j {true => diag, false => grads.hessian[[i,j]]});
-        NetStruct::from_vector(&(&hess.inverse().expect("matrix inversion failed") * &dj),
-                    &self.get_net().get_layers_structure())
+        let mut hess = &grads.hessian
+                    + Matrix::identity(dj.size()) * self.lambda;
+        match &hess.inverse(){
+            &Ok(ref inv_h) => NetStruct::from_vector(&(&(inv_h * &dj)),
+                                   &self.get_net().get_layers_structure()),
+            &Err(_) => {
+                println!("grads are : \n{:?}\n", grads.from_cost);
+                println!("net is : \n{:?}\n", self.get_net());
+                println!("hessian is : \n{:?}\n", grads.hessian);
+                panic!["sucky matrix ! "]
+            },
+        }
     }
-    fn lambda(&mut self, lambda : f64) -> &mut Self {
+    fn next_iter(&mut self, grads : &Gradients){
+        let mut score = self.prev_score;
+        let mut final_grad = self.calc_final(&grads);
+        loop {
+            //println!("loop : {:?}", self.lambda);
+            let final_grad = self.calc_final(&grads);
+            self.lvbm_calc.add_gradient(
+                &final_grad,
+                1.0,
+            );
+            score = self.lvbm_calc.evaluate(&self.tests);
+            if score >= self.prev_score {
+                self.lambda *= 9.5;
+                self.lvbm_calc.add_gradient(
+                    &final_grad,
+                    -1.0,
+                );
+                println!("score : {}\n lambda : {}\n", self.prev_score, self.lambda);
+            } else {
+                self.lambda /= 10.5;
+                break;
+            }
+            //assert_eq![self.lvbm_calc.evaluate(&self.tests), self.prev_score];
+            if self.lambda > 1000_000.0 {
+                println!("tests : \n{:?}", &self.tests);
+                println!("grad : \n{:?}", grads.from_cost);
+                println!("hess : \n{:?}", grads.hessian);
+                println!("net : \n{:?}", &self.get_net());
+                println!("final grad : \n{:?}", &final_grad);
+                self.lambda = 10_000_000_000.0;
+                break;
+                //  println!("net : \n{:?}", &self.get_net());
+            }
+        }
+        //assert_eq![self.get_net().evaluate(&self.tests), score];
+        self.prev_score = score;
+    }
+    pub fn lambda(&mut self, lambda : f64) -> &mut Self {
         self.lambda = lambda;
         self
     }
@@ -121,6 +162,7 @@ impl CoefCalculator<Gradients> for LevembergMarquardtCalculator {
         Gradients{hessian : Matrix::zeros(len,len), from_cost : grad}
     }
 }
+
 
 
 
@@ -199,7 +241,7 @@ mod tests {
         let mut lvb = LevembergMarquardtTrainer::new(Arc::new(vec![Test::new(vector![1.0,3.0], vector![-0.3]),
                                                            Test::new(vector![2.0,1.0], vector![0.4]),
                                                            Test::new(vector![3.0,2.0], vector![0.5])]),
-                                                            layers,
+                                                            layers.clone(),
                                                             &mut XorShiftRng::from_seed([1, 2, 3, 4]));
         lvb.lambda = 10.0;
         lvb.get_mut_net().set_weights(
@@ -208,13 +250,28 @@ mod tests {
         println!("{:?}", glob_grad);
         assert_eq![glob_grad.from_cost, vec![vec![vector![-23.0, -24.5]]]];
         assert_eq![glob_grad.hessian, Matrix::new(2,2,vec![14.0,11.0,11.0,14.0])];
-        let final_grad = lvb.calc_final(glob_grad);
+        let final_grad = lvb.calc_final(&glob_grad);
         assert_eq![final_grad.to_vector(), vector![-0.6208791208791209,-0.7362637362637362]];
         lvb.get_mut_net().add_gradient(&final_grad, 1.0);
         assert_eq![lvb.get_net().get_weights().to_vector(), vector![0.3791208791208791, 0.2637362637362638]];
-        assert_eq![lvb.get_net().evaluate(&vec![Test::new(vector![1.0,3.0], vector![-0.3]),
-                                               Test::new(vector![2.0,1.0], vector![0.4]),
-                                               Test::new(vector![3.0,2.0], vector![0.5])]), 1.3018556535040056]
+        assert_eq![lvb.get_net().evaluate(&lvb.tests), 0.6509278267520028];
+        lvb = LevembergMarquardtTrainer::new(Arc::new(vec![Test::new(vector![1.0,3.0], vector![-0.3]),
+                                                                   Test::new(vector![2.0,1.0], vector![0.4]),
+                                                                   Test::new(vector![3.0,2.0], vector![0.5])]),
+                                                     layers,
+                                                     &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        lvb.lambda = 10.0;
+        lvb.get_mut_net().set_weights(
+            NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]));
+        lvb.prev_score = lvb.lvbm_calc.evaluate(&lvb.tests);
+        let glob_grad = lvb.train(&lvb.tests);
+        lvb.next_iter(&glob_grad);
+        assert_eq![lvb.get_net().get_weights().to_vector(), vector![0.3791208791208791, 0.2637362637362638]];
+        assert_eq![lvb.get_net().evaluate(&lvb.tests), 0.6509278267520028];
+        let glob_grad = lvb.train(&lvb.tests);
+        lvb.next_iter(&glob_grad);
+        println!(" nouv score : {}", lvb.get_net().evaluate(&lvb.tests));
+        assert_eq![lvb.get_net().evaluate(&lvb.tests) < 0.6509278267520028, true];
     }
 }
 

@@ -2,8 +2,7 @@ use rulinalg::vector::Vector;
 use rulinalg::matrix::Matrix;
 use rulinalg::matrix::BaseMatrix;
 use rand::XorShiftRng;
-use num_traits::float::Float;
-use train::Test;
+use example::Test;
 use netstruct::NetStruct;
 use netstruct::NetStructTrait;
 
@@ -143,7 +142,6 @@ impl Network {
     pub fn get_fed_layers(
         &self,
         input: &Vector<f64>,
-        output: &Vector<f64>,
     ) -> (Vec<Vector<f64>>, Vec<Vector<f64>>) {
         let mut activations = vec![input.clone()];
         let mut z_vecs = vec![];
@@ -168,7 +166,7 @@ impl Network {
         // feed forward
 
         let mut grad = self.get_empty_grad();
-        let (activations, z_vecs) = self.get_fed_layers(input, output);
+        let (activations, z_vecs) = self.get_fed_layers(input);
 
 
         // output derivatives

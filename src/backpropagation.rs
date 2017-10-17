@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use netstruct::NetStruct;
 use netstruct::NetStructTrait;
-use train::Test;
+use example::Test;
 use train::Trainer;
 use train::CoefCalculator;
 use network::Network;
@@ -43,7 +43,7 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         let mut i = 0;
         #[allow(dead_code)]
         let mut score = self.get_net().evaluate(&self.tests);
-        while score > self.lower_bound  && i<30_000{
+        while score > self.lower_bound  && i<300{
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();

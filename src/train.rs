@@ -2,23 +2,10 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
 use network::Network;
-use rulinalg::vector::Vector;
 use rand::XorShiftRng;
 use network::LayerConfig;
 use std::cmp::min;
-#[derive(Debug, Clone)]
-pub struct Test {
-    pub inputs: Vector<f64>,
-    pub outputs: Vector<f64>,
-}
-impl Test {
-    pub fn new(inputs: Vector<f64>, outputs: Vector<f64>) -> Self {
-        Test {
-            inputs: inputs,
-            outputs: outputs,
-        }
-    }
-}
+use example::Test;
 
 pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'static>
      {

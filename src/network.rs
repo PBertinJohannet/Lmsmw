@@ -46,7 +46,7 @@ impl LayerConfig {
 
 fn get_eval(func: &EvalFunc) -> (fn(f64) -> f64) {
     match func {
-        &EvalFunc::Sigmoid => |x| 1.0 / (1.0 + (-x).exp()),
+        &EvalFunc::Sigmoid => |x| 1.0 / (1.0 + (-x as f64).exp()),
         &EvalFunc::Identity => |x| x,
     }
 }
@@ -55,7 +55,7 @@ fn get_eval(func: &EvalFunc) -> (fn(f64) -> f64) {
 fn get_prime(func: &EvalFunc) -> (fn(f64) -> f64) {
     match func {
         &EvalFunc::Sigmoid => |x| {
-            let a = 1.0 / (1.0 + (-x).exp());
+            let a = 1.0 / (1.0 + (-x as f64).exp());
             a * (1.0 - a)
         },
         &EvalFunc::Identity => |_| 1.0,

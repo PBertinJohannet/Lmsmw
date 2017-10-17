@@ -2,7 +2,7 @@ use network::Network;
 use rand::XorShiftRng;
 use rand::Rng;
 use rulinalg::vector::Vector;
-
+use num_traits::Float;
 
 #[derive(Debug, Clone)]
 pub struct Test {
@@ -72,9 +72,45 @@ impl TrainingData for Square {
             .collect::<Vec<Test>>()
     }
     fn show_me(net : &Network) {
-        for n in 0..50 {
+        for n in -50..50 {
             let a = n as f64 / 50.0;
             let out = ((a > 0.2 && a < 0.6) as i32 as f64)*50.0;
+            let out_real = net.feed_forward(&vector![a, 1.0])[0]*50.0;
+            println!("out : {}", out as i32);
+            for j in 0..100 {
+                if j as i32 == out as i32 {
+                    print!("O");
+                } else if j as i32 == out_real as i32{
+                    print!(".");
+                } else {
+                    print!(" ");
+                }
+            }
+
+        }
+    }
+}
+
+pub struct Hole {}
+impl TrainingData for Hole {
+    fn create_tests(nb: i32) -> Vec<Test> {
+        let mut my_rand = XorShiftRng::new_unseeded();
+        (0..nb)
+            .map(|_| {
+                my_rand.gen_range(0.0, 1.0)
+            })
+            .map(|a| {
+                Test::new(
+                    vector![a,1.0],
+                    vector![1.0-((a > 0.3 && a < 0.7) as i32 as f64)*a],
+                )
+            })
+            .collect::<Vec<Test>>()
+    }
+    fn show_me(net : &Network) {
+        for n in 0..50 {
+            let a = n as f64 / 50.0;
+            let out = (1.0-((a > 0.3 && a < 0.7) as i32 as f64)*a)*50.0;
             let out_real = net.feed_forward(&vector![a, 1.0])[0]*50.0;
             println!("out : {}", out as i32);
             for j in 0..100 {
@@ -102,7 +138,7 @@ impl TrainingData for Triangle {
             .map(|a| {
                 Test::new(
                     vector![a,1.0],
-                    vector![(a > 0.2 && a < 0.6) as i32 as f64],
+                    vector![match a > 0.5 { true => a, false => 1.0-a}],
                 )
             })
             .collect::<Vec<Test>>()
@@ -110,7 +146,7 @@ impl TrainingData for Triangle {
     fn show_me(net : &Network) {
         for n in 0..50 {
             let a = n as f64 / 50.0;
-            let out = ((a > 0.2 && a < 0.6) as i32 as f64)*50.0;
+            let out = (match a > 0.5 { true => a, false => 1.0-a})*50.0;
             let out_real = net.feed_forward(&vector![a, 1.0])[0]*50.0;
             println!("out : {}", out as i32);
             for j in 0..100 {

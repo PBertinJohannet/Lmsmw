@@ -23,6 +23,8 @@ use network::EvalFunc;
 use example::GreaterThan;
 use example::Sine;
 use example::Square;
+use example::Hole;
+use example::Triangle;
 use example::TrainingData;
 // I need a real test now ! -> 1 / n**2 * n * machin
 
@@ -33,7 +35,7 @@ fn main() {
     let tests = Arc::new(tests_array);
 
     println!("tests : {:?}", tests);
-    let mut layers = layers![2, 3, 3, 1];
+    let mut layers = layers![2, 5, 4, 3, 1];
     for l in 0..layers.len() {
         layers[l].eval_function(EvalFunc::Sigmoid);
     }
@@ -47,7 +49,7 @@ fn main() {
         false => {
             LevembergMarquardtTrainer::new(tests, layers, &mut my_rand)
                 .lambda(1000.0)
-                .lower_bound(0.0005)
+                .lower_bound(0.0015)
                 .start()
                 .get_net()
         }

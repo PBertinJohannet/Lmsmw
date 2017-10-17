@@ -19,17 +19,18 @@ use network::LayerConfig;
 use network::EvalFunc;
 use example::GreaterThan;
 use example::Sine;
+use example::Triangle;
 use example::TrainingData;
 // I need a real test now !
 
 fn main() {
     let mut my_rand = XorShiftRng::new_unseeded();
-    let mut tests_array = GreaterThan::create_tests(10000);
+    let mut tests_array = Triangle::create_tests(100);
     my_rand.shuffle(&mut tests_array);
     let tests = Arc::new(tests_array);
 
     println!("tests : {:?}", tests);
-    let mut layers = layers![2, 8, 2];
+    let mut layers = layers![2, 3, 1];
     for l in 0..layers.len() {
         layers[l].eval_function(EvalFunc::Sigmoid);
     }
@@ -37,24 +38,16 @@ fn main() {
         true => BackPropTrainer::new(tests, layers, &mut my_rand)
             .number_of_batches(5)
             .step(5.6)
-            .lower_bound(0.7)
-            .start()
-            .step(0.2)
-            .lower_bound(0.65)
-            .start()
-            .step(15.0)
-            .lower_bound(0.64)
-            .start()
-            .step(30.0)
-            .lower_bound(0.002)
+            .lower_bound(0.02)
             .start()
             .get_net(),
         false => {
             LevembergMarquardtTrainer::new(tests, layers, &mut my_rand)
-                .lambda(10000.0)
+                .lambda(100000.0)
                 .lower_bound(0.0015)
                 .start()
                 .get_net()
         }
     };
+    Triangle::show_me(&net);
 }

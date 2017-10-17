@@ -43,7 +43,7 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         let mut i = 0;
         #[allow(dead_code)]
         let mut score = self.get_net().evaluate(&self.tests);
-        while score > self.lower_bound  && i<300{
+        while score > self.lower_bound  {
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();

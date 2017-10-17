@@ -20,9 +20,9 @@ impl Test {
 
 pub trait TrainingData {
     fn create_tests(nb: i32) -> Vec<Test>;
-    fn lower_bound() -> f64;
-    fn show_me(&self, net : &Network);
+    fn show_me(net : &Network);
 }
+
 pub struct GreaterThan {}
 impl TrainingData for GreaterThan {
     fn create_tests(nb: i32) -> Vec<Test> {
@@ -39,14 +39,43 @@ impl TrainingData for GreaterThan {
             })
             .collect::<Vec<Test>>()
     }
-    fn lower_bound() -> f64 {
-        0.2
-    }
-    fn show_me(&self, net : &Network) {
+    fn show_me(net : &Network) {
         for n in 0..50 {
-            let inp =  6.28 * n as f64 / 50.0 as f64;
-            let out = (inp.sin()*0.5+0.5)*50.0;
-            let out_real = net.feed_forward(&vector![inp/6.28, 1.0])[0]*50.0;
+            println!("  ");
+            for j in 0..100 {
+                let out = net.feed_forward(&vector![n as f64/50.0, j as f64/100.0])[0];
+                if out.round() == 1.0 {
+                    print!("O");
+                } else {
+                    print!(" ");
+                }
+            }
+        }
+    }
+}
+
+
+pub struct Triangle {}
+impl TrainingData for Triangle {
+    fn create_tests(nb: i32) -> Vec<Test> {
+        let mut my_rand = XorShiftRng::new_unseeded();
+        (0..nb)
+            .map(|_| {
+                my_rand.gen_range(0.0, 1.0)
+            })
+            .map(|a| {
+                Test::new(
+                    vector![a,1.0],
+                    vector![(a > 0.2 && a < 0.6) as i32 as f64],
+                )
+            })
+            .collect::<Vec<Test>>()
+    }
+    fn show_me(net : &Network) {
+        for n in 0..50 {
+            let a = n as f64 / 50.0;
+            let out = ((a > 0.2 && a < 0.6) as i32 as f64)*50.0;
+            let out_real = net.feed_forward(&vector![a, 1.0])[0]*50.0;
             println!("out : {}", out as i32);
             for j in 0..100 {
                 if j as i32 == out as i32 {
@@ -57,9 +86,12 @@ impl TrainingData for GreaterThan {
                     print!(" ");
                 }
             }
+
         }
     }
 }
+
+
 pub struct Sine {}
 impl TrainingData for Sine {
     fn create_tests(nb: i32) -> Vec<Test> {
@@ -68,10 +100,7 @@ impl TrainingData for Sine {
             .map(|a| Test::new(vector![a/6.28, 1.0], vector![a.sin()*0.5+0.5]))
             .collect::<Vec<Test>>()
     }
-    fn lower_bound() -> f64 {
-        0.2
-    }
-    fn show_me(&self, net : &Network) {
+    fn show_me(net : &Network) {
         for n in 0..50 {
             let inp =  6.28 * n as f64 / 50.0 as f64;
             let out = (inp.sin()*0.5+0.5)*50.0;

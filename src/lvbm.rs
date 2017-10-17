@@ -115,7 +115,9 @@ impl LevembergMarquardtTrainer {
                 );
                 println!("score : {}\n lambda : {}\n", self.prev_score, self.lambda);
             } else {
-                self.lambda /= 10.5;
+                if self.lambda > 0.000_000_000_1 {
+                    self.lambda /= 1.5;
+                }
                 self.prev_score = score;
                 break;
             }

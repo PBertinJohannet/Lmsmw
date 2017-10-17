@@ -55,6 +55,42 @@ impl TrainingData for GreaterThan {
 }
 
 
+pub struct Square {}
+impl TrainingData for Square {
+    fn create_tests(nb: i32) -> Vec<Test> {
+        let mut my_rand = XorShiftRng::new_unseeded();
+        (0..nb)
+            .map(|_| {
+                my_rand.gen_range(0.0, 1.0)
+            })
+            .map(|a| {
+                Test::new(
+                    vector![a,1.0],
+                    vector![(a > 0.2 && a < 0.6) as i32 as f64],
+                )
+            })
+            .collect::<Vec<Test>>()
+    }
+    fn show_me(net : &Network) {
+        for n in 0..50 {
+            let a = n as f64 / 50.0;
+            let out = ((a > 0.2 && a < 0.6) as i32 as f64)*50.0;
+            let out_real = net.feed_forward(&vector![a, 1.0])[0]*50.0;
+            println!("out : {}", out as i32);
+            for j in 0..100 {
+                if j as i32 == out as i32 {
+                    print!("O");
+                } else if j as i32 == out_real as i32{
+                    print!(".");
+                } else {
+                    print!(" ");
+                }
+            }
+
+        }
+    }
+}
+
 pub struct Triangle {}
 impl TrainingData for Triangle {
     fn create_tests(nb: i32) -> Vec<Test> {

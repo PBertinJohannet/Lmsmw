@@ -25,17 +25,18 @@ use example::Sine;
 use example::Square;
 use example::Hole;
 use example::Triangle;
+use example::Round;
 use example::TrainingData;
 // I need a real test now ! -> 1 / n**2 * n * machin
 
 fn main() {
     let mut my_rand = XorShiftRng::new_unseeded();
-    let mut tests_array = Square::create_tests(1000);
+    let mut tests_array = Round::create_tests(1000);
     my_rand.shuffle(&mut tests_array);
     let tests = Arc::new(tests_array);
 
     println!("tests : {:?}", tests);
-    let mut layers = layers![2, 5, 4, 3, 1];
+    let mut layers = layers![64,8];
     for l in 0..layers.len() {
         layers[l].eval_function(EvalFunc::Sigmoid);
     }

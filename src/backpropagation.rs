@@ -55,8 +55,13 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
                 );
             }
             score = self.get_net().evaluate(&self.tests);
-            println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64,|acc,&x|match acc>x {true => acc, false =>x}));
-            println!("epoch : {}, eval after : {}", i, score);
+            if i % 50 == 0 {
+                println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64, |acc, &x| match acc > x {
+                    true => acc,
+                    false => x
+                }));
+                println!("epoch : {}, eval after : {}", i, score);
+            }
         }
         self
     }

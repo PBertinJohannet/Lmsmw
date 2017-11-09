@@ -191,3 +191,40 @@ impl TrainingData for Sine {
         }
     }
 }
+
+
+pub struct Round {}
+impl TrainingData for Round {
+    fn create_tests(nb: i32) -> Vec<Test> {
+        let size : usize= 8;
+        let mut my_rand = XorShiftRng::new_unseeded();
+        (0..nb)
+            .map(|k| (my_rand.gen_iter::<f64>().take(size*size).map(|x|x*0.1).collect::<Vec<f64>>(),
+                      k as usize%size))
+            .map(|(qd, a)|
+                (a,(0..size*size).map(|i| match i%size == a {true => 0.1, false => qd[i as
+                    usize]})
+                    .collect::<Vec<f64>>()))
+            .map(|(a, ret)| {
+                Test::new(Vector::new(ret), Vector::new((0..size).map(|i| match i == a {true =>
+                    1.0,
+                    false => 0.0}).collect::<Vec<f64>>()))
+            })
+            .collect::<Vec<Test>>()
+    }
+    fn show_me(net: &Network) {
+        println!("end ");/*
+        for a in 0..5 {
+            println!("  ");
+            for j in 0..100 {
+                //let out = net.feed_forward(&vector![n as f64 / 50.0, j as f64 / 100.0])[0];
+                if out.round() == 1.0 {
+                    print!("O");
+                } else {
+                    print!(" ");
+                }
+            }
+        }*/
+    }
+}
+

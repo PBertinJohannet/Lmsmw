@@ -13,6 +13,7 @@ pub struct BackPropTrainer {
     lower_bound: f64,
     step: f64,
     mini_batches: usize,
+    max_iters: usize,
 }
 
 impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
@@ -23,6 +24,7 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
             lower_bound: 0.2,
             step: 0.1,
             mini_batches: 1,
+            max_iters: 1000_000,
         }
     }
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>> {
@@ -39,11 +41,10 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         &self.back_prop_calc
     }
     fn start(&mut self) -> &mut Self {
-        println!("start net : {:?}", self.get_net());
         let mut i = 0;
         #[allow(dead_code)]
         let mut score = self.get_net().evaluate(&self.tests);
-        while score > self.lower_bound  {
+        while score > self.lower_bound && i < self.max_iters {
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();
@@ -54,12 +55,15 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
                     step / (l as f64),
                 );
             }
+            if self.get_net().evaluate(&self.tests) > score {
+                self.step *= 0.95;
+            }
             score = self.get_net().evaluate(&self.tests);
-            if i % 50 == 0 {
-                println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64, |acc, &x| match acc > x {
+            if i % 2 == 0 {
+                /*println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64, |acc, &x| match acc > x {
                     true => acc,
                     false => x
-                }));
+                }));*/
                 println!("epoch : {}, eval after : {}", i, score);
             }
         }
@@ -81,11 +85,19 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         self.lower_bound = bound;
         self
     }
+    fn set_net(&mut self, net: Network) -> &mut Self {
+        self.back_prop_calc = net;
+        self
+    }
 }
 
 impl BackPropTrainer {
     pub fn step(&mut self, step: f64) -> &mut Self {
         self.step = step;
+        self
+    }
+    pub fn max_iterations(&mut self, max: usize) -> &mut Self {
+        self.max_iters = max;
         self
     }
 }
@@ -108,6 +120,3 @@ impl CoefCalculator<NetStruct> for BackPropagationCalculator {
         self.get_empty_grad()
     }
 }
-
-
-

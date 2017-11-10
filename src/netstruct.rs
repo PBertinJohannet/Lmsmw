@@ -18,7 +18,13 @@ impl NetStructTrait for NetStruct {
           &next)| {
             (0..next)
                 .map(|_| {
-                    Vector::from(my_rand.gen_iter::<f64>().map(|x|x*0.2).take(prev).collect::<Vec<f64>>())
+                    Vector::from(
+                        my_rand
+                            .gen_iter::<f64>()
+                            .map(|x| x * 0.2)
+                            .take(prev)
+                            .collect::<Vec<f64>>(),
+                    )
                 })
                 .collect::<Vec<Vector<f64>>>()
         })).collect()
@@ -104,7 +110,7 @@ mod tests {
                 &vector![3.0, 2.0, 1.0],
                 &vec![2, 1, 1],
             )).to_vector(),
-            vector![4.0, 4.0, 4.0]
+            vector![4.0, 4.0, 4.0],
         ];
     }
     #[test]
@@ -112,7 +118,7 @@ mod tests {
         let s = NetStruct::from_vector(&vector![1.0, 2.0, 3.0], &vec![2, 1, 1]);
         assert_eq![
             s.apply(&|x| (x * 5.0).sin()).to_vector(),
-            vector![-0.9589242746631385, -0.5440211108893698, 0.6502878401571168]
+            vector![-0.9589242746631385, -0.5440211108893698, 0.6502878401571168],
         ];
         assert_eq![s.apply(&|x| x * 2.0).to_vector(), vector![2.0, 4.0, 6.0]];
     }

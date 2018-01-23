@@ -14,6 +14,7 @@ pub struct BackPropTrainer {
     step: f64,
     mini_batches: usize,
     max_iters: usize,
+    verbose: bool,
 }
 
 impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
@@ -25,6 +26,7 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
             step: 0.1,
             mini_batches: 1,
             max_iters: 1000_000,
+            verbose: false,
         }
     }
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>> {
@@ -48,18 +50,20 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();
-                let glob_grad = self.train(&Arc::new(batch));
-                let step = self.step;
-                self.get_mut_net().add_gradient(
-                    &glob_grad,
-                    step / (l as f64),
-                );
+                if l > 0 {
+                    let glob_grad = self.train(&Arc::new(batch));
+                    let step = self.step;
+                    self.get_mut_net().add_gradient(
+                        &glob_grad,
+                        step / (l as f64),
+                    );
+                }
             }
             if self.get_net().evaluate(&self.tests) > score {
                 self.step *= 0.95;
             }
             score = self.get_net().evaluate(&self.tests);
-            if i % 2 == 0 {
+            if i % 2 == 0 && self.verbose {
                 /*println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64, |acc, &x| match acc > x {
                     true => acc,
                     false => x
@@ -88,6 +92,14 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
     fn set_net(&mut self, net: Network) -> &mut Self {
         self.back_prop_calc = net;
         self
+    }
+    fn verbose(&mut self, verb: bool) -> &mut Self {
+        self.verbose = verb;
+        self
+    }
+
+    fn is_verbose(&mut self) -> bool {
+        self.verbose
     }
 }
 

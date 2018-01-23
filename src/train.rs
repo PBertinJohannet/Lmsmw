@@ -9,6 +9,8 @@ use example::Test;
 
 pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'static>
      {
+    fn verbose(&mut self, bool) -> &mut Self;
+    fn is_verbose(&mut self) -> bool;
     fn start(&mut self) -> &mut Self;
     fn get_net(&self) -> Network;
     fn get_empty_val(&self) -> T;
@@ -61,7 +63,7 @@ pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'stati
     fn train(&self, tests: &Arc<Vec<Test>>) -> T {
         let nb_threads: usize = min(8, tests.len());
         let (tx, rx) = mpsc::channel();
-        {
+        if nb_threads > 0 {
             let num_tasks_per_thread = tests.len() / nb_threads;
             let num_tougher_threads = tests.len() % nb_threads;
             let mut offset = 0;

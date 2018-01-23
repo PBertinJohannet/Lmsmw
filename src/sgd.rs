@@ -9,7 +9,7 @@ use rand::XorShiftRng;
 use network::LayerConfig;
 pub struct BackPropTrainer {
     tests: Arc<Vec<Test>>,
-    back_prop_calc: BackPropagationCalculator,
+    back_prop_calc: GradientDescentCalculator,
     lower_bound: f64,
     step: f64,
     mini_batches: usize,
@@ -17,7 +17,7 @@ pub struct BackPropTrainer {
     verbose: bool,
 }
 
-impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
+impl Trainer<NetStruct, GradientDescentCalculator> for BackPropTrainer {
     fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
         BackPropTrainer {
             tests: tests,
@@ -36,10 +36,10 @@ impl Trainer<NetStruct, BackPropagationCalculator> for BackPropTrainer {
         self.mini_batches = mini_batch_size;
         self
     }
-    fn get_cloned_calculator(&self) -> BackPropagationCalculator {
+    fn get_cloned_calculator(&self) -> GradientDescentCalculator {
         self.back_prop_calc.clone()
     }
-    fn get_calculator(&self) -> &BackPropagationCalculator {
+    fn get_calculator(&self) -> &GradientDescentCalculator {
         &self.back_prop_calc
     }
     fn start(&mut self) -> &mut Self {
@@ -116,9 +116,9 @@ impl BackPropTrainer {
 
 
 
-type BackPropagationCalculator = Network;
+type GradientDescentCalculator = Network;
 
-impl CoefCalculator<NetStruct> for BackPropagationCalculator {
+impl CoefCalculator<NetStruct> for GradientDescentCalculator {
     fn get_net(&self) -> Network {
         self.clone()
     }

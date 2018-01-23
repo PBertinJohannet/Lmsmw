@@ -13,7 +13,7 @@ Usage example :
 
 
 
- ```
+ ```rust
     // first create some tests
     let mut tests_array = vec![Test::new(vector![2.0,3.0,0.1], vector![0.1, 0.5]),
                                Test::new(vector![1.0,1.0,0.7], vector![0.5, 1.0])];

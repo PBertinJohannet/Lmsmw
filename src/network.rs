@@ -1,3 +1,7 @@
+//! # Network
+//! The module containing the
+//! to use a network call the feed_forward function on the input.
+
 use rulinalg::vector::Vector;
 use rulinalg::matrix::Matrix;
 use rulinalg::matrix::BaseMatrix;
@@ -7,44 +11,47 @@ use netstruct::NetStruct;
 use netstruct::NetStructTrait;
 
 
-
-macro_rules! layers {
-    ( $( $x:expr),* ) => {
-        {
-            let mut temp_vec = Vec::new();
-            $( temp_vec.push(LayerConfig::new($x));)*
-            temp_vec
-        }
-    }
-}
-
-
-#[derive(Debug, Clone)]
-pub enum EvalFunc {
-    Sigmoid,
-    Identity,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
+/// Configuration for a layer
 pub struct LayerConfig {
+    /// the number of neurons in the layer
     nb_neurs: usize,
+    /// the evaluation function of the layer.
     eval_fun: EvalFunc,
 }
 
 impl LayerConfig {
+    /// creates a layer config with the desired number of neurons
+    /// Default activation function is sigmoid.
     pub fn new(nb_neurs: usize) -> Self {
         LayerConfig {
             nb_neurs: nb_neurs,
             eval_fun: EvalFunc::Sigmoid,
         }
     }
-    pub fn eval_function(&mut self, func: EvalFunc) -> &mut Self {
+    fn eval_function(&mut self, func: EvalFunc) -> &mut Self {
         self.eval_fun = func;
         self
     }
     fn get_num(&self) -> usize {
         self.nb_neurs
     }
+}
+
+
+#[derive(Debug, Clone, Copy)]
+/// The possible activation functions for the layers.
+pub enum EvalFunc {
+    /// The sigmoid function :
+    /// $$
+    /// \frac{1,{1 + e^{-x}
+    /// $$
+    Sigmoid,
+    /// The Identity function :
+    /// $$
+    /// x
+    /// $$
+    Identity,
 }
 
 fn get_eval(func: &EvalFunc) -> (fn(f64) -> f64) {
@@ -66,15 +73,21 @@ fn get_prime(func: &EvalFunc) -> (fn(f64) -> f64) {
 }
 
 #[derive(Debug, Clone)]
+/// The neural network structure
 pub struct Network {
+    /// number of layers
     num_layers: usize,
+    /// comfigurations of layers
     layers: Vec<LayerConfig>,
+    /// the weights of the network
     weights: NetStruct,
+    /// the number of coeficient in the network.
     nb_coef: usize,
 }
 
 
 impl Network {
+    /// Creates a new random network with the given randomgenerator and structure.
     pub fn new(structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
         Network {
             num_layers: structure.len(),
@@ -88,12 +101,19 @@ impl Network {
             )).sum(),
         }
     }
+    /// Returns the structure of the network's layers
+    pub fn layers(&self) -> Vec<LayerConfig>{
+        self.layers.clone()
+    }
+    /// sets the weights of the network.
     pub fn set_weights(&mut self, weights: NetStruct) {
         self.weights = weights;
     }
+    /// Returns the weights of the network.
     pub fn get_weights(&self) -> &NetStruct {
         &self.weights
     }
+    /// Feed forward the input trough the network and returns the output.
     pub fn feed_forward(&self, input: &Vector<f64>) -> Vector<f64> {
         self.weights.iter().enumerate().fold(input.clone(), |prev,
          (nb, layer)| {
@@ -107,6 +127,7 @@ impl Network {
             )
         })
     }
+    /// evaluate the network on all tests.
     pub fn evaluate(&self, tests: &Vec<Test>) -> f64 {
         (tests
              .iter()
@@ -117,12 +138,15 @@ impl Network {
         })
              .sum::<f64>()) / (tests.len()) as f64
     }
+    /// returns the derivative of the score given the desired and actual outputs.
     pub fn cost_derivative(&self, output: &Vector<f64>, desired: &Vector<f64>) -> Vector<f64> {
         desired - output
     }
+    /// returns the structure of the layers.
     pub fn get_layers_structure(&self) -> Vec<usize> {
         self.layers.iter().map(|x| x.get_num()).collect()
     }
+    /// Returns a gradient of zeroes.
     pub fn get_empty_grad(&self) -> NetStruct {
         (self.layers.iter().zip(self.layers.iter().skip(1)).map(
             |(ref prev, ref next)| {
@@ -132,6 +156,7 @@ impl Network {
             },
         )).collect::<Vec<_>>()
     }
+    /// Compute the global gradient of the score for all the tests.
     pub fn global_gradient(&self, tests: &[Test], from_cost: bool) -> NetStruct {
         tests
             .iter()
@@ -144,9 +169,11 @@ impl Network {
             })
             .apply(&|x| x / tests.len() as f64)
     }
+    /// add the given gradient to the network.
     pub fn add_gradient(&mut self, grad: &NetStruct, coef: f64) {
         self.weights = self.weights.add(&grad.apply(&|a| a * coef));
     }
+    /// Compute the global hessian of the output for all the tests.
     pub fn global_hessian(&self, tests: &[Test]) -> Matrix<f64> {
         let mut hessian = self.get_hessian(&tests[0].inputs, &tests[0].outputs);
         for i in 1..tests.len() {
@@ -154,10 +181,12 @@ impl Network {
         }
         hessian
     }
+    /// Return the hessian of the output for the given input.
     pub fn get_hessian(&self, input: &Vector<f64>, output: &Vector<f64>) -> Matrix<f64> {
         let grad = self.back_propagation(input, output, false).to_vector();
         Matrix::from_fn(grad.size(), grad.size(), |col, row| grad[col] * grad[row])
     }
+    /// Returns all the activations and z values of the vectors for the given input.
     pub fn get_fed_layers(&self, input: &Vector<f64>) -> (Vec<Vector<f64>>, Vec<Vector<f64>>) {
         let mut activations = vec![input.clone()];
         let mut z_vecs = vec![];
@@ -174,6 +203,9 @@ impl Network {
         }
         (activations, z_vecs)
     }
+    /// The backpropagation algorithm.
+    /// If from_cost is at true, computes the gradient of the score
+    /// Else compute the gradient of the output.
     pub fn back_propagation(
         &self,
         input: &Vector<f64>,

@@ -24,6 +24,8 @@ pub struct LevembergMarquardtTrainer {
     mini_batches: usize,
     lambda: f64,
     pub prev_score: f64,
+    verbose: bool,
+    max_iters : usize,
 }
 
 impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrainer {
@@ -37,6 +39,8 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
             mini_batches: 1,
             lambda: 10000.0,
             prev_score: score,
+            verbose: false,
+            max_iters : 10_000_000,
         }
     }
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>> {
@@ -57,7 +61,7 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
         //println!("start net : {:?}", self.get_net());
         let mut i = 0;
         #[allow(dead_code)]
-        while self.prev_score > self.lower_bound {
+        while self.prev_score > self.lower_bound && i < self.max_iters{
             i += 1;
             for batch in self.get_mini_batches() {
                 let l = batch.len();
@@ -65,20 +69,22 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
                 self.next_iter(&glob_grad);
             }
             //println!("glob grad max : {:?}", self.get_net().get_weights().to_vector().iter().fold(0.0 as f64,|acc,&x|match acc>x {true => acc, false =>x}));
-            println!(
-                "epoch : {}, eval after : {}                glob grad max : {}",
-                i,
-                self.prev_score,
-                self.get_net().get_weights().to_vector().iter().fold(
-                    0.0,
-                    |acc, &x| {
-                        match acc > x {
-                            true => acc,
-                            false => x,
-                        }
-                    },
-                )
-            );
+            if self.verbose {
+                println!(
+                    "epoch : {}, eval after : {}                glob grad max : {}",
+                    i,
+                    self.prev_score,
+                    self.get_net().get_weights().to_vector().iter().fold(
+                        0.0,
+                        |acc, &x| {
+                            match acc > x {
+                                true => acc,
+                                false => x,
+                            }
+                        },
+                    )
+                );
+            }
             if self.lambda > 10_000_000_000.0 {
                 break;
             }
@@ -105,9 +111,21 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
         self.lvbm_calc = net;
         self
     }
+    fn verbose(&mut self, verb: bool) -> &mut Self {
+        self.verbose = verb;
+        self
+    }
+
+    fn is_verbose(&mut self) -> bool {
+        self.verbose
+    }
 }
 
 impl LevembergMarquardtTrainer {
+    pub fn max_iterations(&mut self, max: usize) -> &mut Self {
+        self.max_iters = max;
+        self
+    }
     fn fold_elimination(&self, vecs: &Vec<Vector<f64>>, sol: &Vector<f64>) -> Vector<f64> {
         let mut xzero = sol.clone().apply(&|x| x / self.lambda);
         let mut y = vec![

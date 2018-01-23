@@ -3,13 +3,17 @@ use rand::XorShiftRng;
 use rand::Rng;
 use rulinalg::vector::Vector;
 use num_traits::Float;
-
+/// The basic structure for example data
+/// Vectors of f64 only currently
 #[derive(Debug, Clone)]
 pub struct Test {
+    /// The inputs for this test
     pub inputs: Vector<f64>,
+    /// The expected outputs for this test.
     pub outputs: Vector<f64>,
 }
 impl Test {
+    /// Creates a new test from two vectors
     pub fn new(inputs: Vector<f64>, outputs: Vector<f64>) -> Self {
         Test {
             inputs: inputs,
@@ -107,7 +111,7 @@ impl TrainingData for Hole {
             let out_real = net.feed_forward(&vector![a, 1.0])[0] * 50.0;
             println!("out : {}", out as i32);
             for j in 0..100 {
-                if j  == out as i32 {
+                if j == out as i32 {
                     print!("O");
                 } else if j == out_real as i32 {
                     print!(".");
@@ -175,14 +179,14 @@ impl TrainingData for Sine {
     }
     fn show_me(net: &Network) {
         for n in 0..50 {
-            let inp = 6.28 * n as f64 / 50.0 ;
+            let inp = 6.28 * n as f64 / 50.0;
             let out = (inp.sin() * 0.5 + 0.5) * 50.0;
             let out_real = net.feed_forward(&vector![inp / 6.28, 1.0])[0] * 50.0;
             println!("out : {}", out as i32);
             for j in 0..100 {
-                if j  == out as i32 {
+                if j == out as i32 {
                     print!("O");
-                } else if j  == out_real as i32 {
+                } else if j == out_real as i32 {
                     print!(".");
                 } else {
                     print!(" ");

@@ -1,8 +1,6 @@
-use network::Network;
-use rand::XorShiftRng;
-use rand::Rng;
+use crate::network::Network;
+use rand::{Rng, thread_rng, distributions::Normal};
 use rulinalg::vector::Vector;
-use num_traits::Float;
 /// The basic structure for example data
 /// Vectors of f64 only currently
 #[derive(Debug, Clone)]
@@ -26,11 +24,11 @@ pub trait TrainingData {
     fn create_tests(nb: i32) -> Vec<Test>;
     fn show_me(net: &Network);
 }
-
+#[allow(dead_code)]
 pub struct GreaterThan {}
 impl TrainingData for GreaterThan {
     fn create_tests(nb: i32) -> Vec<Test> {
-        let mut my_rand = XorShiftRng::new_unseeded();
+        let mut my_rand = thread_rng();
         (0..nb)
             .map(|_| {
                 (my_rand.gen_range(-1.0, 1.0), my_rand.gen_range(-1.0, 1.0))
@@ -59,10 +57,11 @@ impl TrainingData for GreaterThan {
 }
 
 
+#[allow(dead_code)]
 pub struct Square {}
 impl TrainingData for Square {
     fn create_tests(nb: i32) -> Vec<Test> {
-        let mut my_rand = XorShiftRng::new_unseeded();
+        let mut my_rand = thread_rng();
         (0..nb)
             .map(|_| my_rand.gen_range(0.0, 1.0))
             .map(|a| {
@@ -90,10 +89,11 @@ impl TrainingData for Square {
     }
 }
 
+#[allow(dead_code)]
 pub struct Hole {}
 impl TrainingData for Hole {
     fn create_tests(nb: i32) -> Vec<Test> {
-        let mut my_rand = XorShiftRng::new_unseeded();
+        let mut my_rand = thread_rng();
         (0..nb)
             .map(|_| my_rand.gen_range(0.0, 1.0))
             .map(|a| {
@@ -124,10 +124,11 @@ impl TrainingData for Hole {
     }
 }
 
+#[allow(dead_code)]
 pub struct Triangle {}
 impl TrainingData for Triangle {
     fn create_tests(nb: i32) -> Vec<Test> {
-        let mut my_rand = XorShiftRng::new_unseeded();
+        let mut my_rand = thread_rng();
         (0..nb)
             .map(|_| my_rand.gen_range(0.0, 1.0))
             .map(|a| {
@@ -167,6 +168,7 @@ impl TrainingData for Triangle {
 }
 
 
+#[allow(dead_code)]
 pub struct Sine {}
 impl TrainingData for Sine {
     fn create_tests(nb: i32) -> Vec<Test> {
@@ -198,16 +200,17 @@ impl TrainingData for Sine {
 }
 
 
+#[allow(dead_code)]
 pub struct Round {}
 impl TrainingData for Round {
     fn create_tests(nb: i32) -> Vec<Test> {
         let size: usize = 7;
-        let mut my_rand = XorShiftRng::new_unseeded();
+        let mut my_rand = thread_rng();
         (0..nb)
             .map(|k| {
                 (
                     my_rand
-                        .gen_iter::<f64>()
+                        .sample_iter(&Normal::new(0.0, 1.0))
                         .take(size * size)
                         .map(|x| x * 0.1)
                         .collect::<Vec<f64>>(),
@@ -240,7 +243,7 @@ impl TrainingData for Round {
             })
             .collect::<Vec<Test>>()
     }
-    fn show_me(net: &Network) {
+    fn show_me(_net: &Network) {
         println!("end "); /*
         for a in 0..5 {
             println!("  ");

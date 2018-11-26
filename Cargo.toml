@@ -2,6 +2,7 @@
 name = "lmsmw"
 version = "0.1.0"
 authors = ["pierre bertin johannet <pierre.bertin-johannet@orange.fr>"]
+edition = "2018"
 
 [dependencies]
 rulinalg="0.4.2"

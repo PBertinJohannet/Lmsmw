@@ -2,14 +2,14 @@ use rulinalg::matrix::Matrix;
 use rulinalg::matrix::BaseMatrix;
 use rulinalg::vector::Vector;
 use std::sync::Arc;
-use netstruct::NetStruct;
-use netstruct::NetStructTrait;
-use example::Test;
-use train::Trainer;
-use train::CoefCalculator;
-use network::Network;
-use rand::XorShiftRng;
-use network::LayerConfig;
+use crate::netstruct::NetStruct;
+use crate::netstruct::NetStructTrait;
+use crate::example::Test;
+use crate::train::Trainer;
+use crate::train::CoefCalculator;
+use crate::network::Network;
+use rand::prelude::ThreadRng;
+use crate::network::LayerConfig;
 
 #[derive(Debug)]
 pub struct Gradients {
@@ -29,7 +29,7 @@ pub struct LevembergMarquardtTrainer {
 }
 
 impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrainer {
-    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
+    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut ThreadRng) -> Self {
         let net = Network::new(structure, my_rand);
         let score = net.evaluate(&tests);
         LevembergMarquardtTrainer {
@@ -64,7 +64,6 @@ impl Trainer<Gradients, LevembergMarquardtCalculator> for LevembergMarquardtTrai
         while self.prev_score > self.lower_bound && i < self.max_iters{
             i += 1;
             for batch in self.get_mini_batches() {
-                let l = batch.len();
                 let glob_grad = self.train(&Arc::new(batch));
                 self.next_iter(&glob_grad);
             }
@@ -235,7 +234,6 @@ impl CoefCalculator<Gradients> for LevembergMarquardtCalculator {
     }
     fn get_empty_val(&self) -> Gradients {
         let grad = self.get_empty_grad().to_vector();
-        let len = grad.size();
         Gradients {
             grads: vec![],
             from_cost: grad,
@@ -249,26 +247,16 @@ impl CoefCalculator<Gradients> for LevembergMarquardtCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
-    #[test]
-    fn new() {
-        let mut my_rand = XorShiftRng::from_seed([1, 2, 3, 4]);
-        let tests = Arc::new(vec![Test::new(vector![1.0, 1.1], vector![0.1])]);
-        let my_trainer = LevembergMarquardtTrainer::new(tests, layers![2, 1], &mut my_rand);
-        let my_net: Network = my_trainer.get_net();
-        assert_eq![
-            my_net.feed_forward(&vector![1.0, 0.5]),
-            Network::new(layers![2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]))
-                .feed_forward(&vector![1.0, 0.5]),
-        ];
-    }
+    use rand::{thread_rng, Rng, RngCore, Error};
+
     #[test]
     fn one_iter() {
+        use crate::network::EvalFunc;
         let mut layers = layers![2, 1];
         for l in 0..layers.len() {
             layers[l].eval_function(EvalFunc::Identity);
         }
-        let mut net = Network::new(layers.clone(), &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers.clone(), &mut thread_rng());
         // test hessian calculation
         net.set_weights(NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]));
         assert_eq![
@@ -358,7 +346,7 @@ mod tests {
                 Test::new(vector![3.0, 2.0], vector![0.5]),
             ]),
             layers.clone(),
-            &mut XorShiftRng::from_seed([1, 2, 3, 4]),
+            &mut thread_rng(),
         );
         lvb.lambda = 10.0;
         lvb.get_mut_net().set_weights(NetStruct::from_vector(
@@ -367,11 +355,11 @@ mod tests {
         ));
         let glob_grad = lvb.train(&lvb.tests);
         println!("{:?}", glob_grad);
-        assert_eq![glob_grad.from_cost, vec![vec![vector![-23.0, -24.5]]]];
-        assert_eq![
-            glob_grad.grads,
-            Matrix::new(2, 2, vec![14.0, 11.0, 11.0, 14.0]),
-        ];
+        assert_eq![glob_grad.from_cost, vector![-23.0, -24.5]];
+        assert_eq!(glob_grad.grads.len(), 3);
+        assert!(glob_grad.grads.contains(&vector![1.0, 3.0]));
+        assert!(glob_grad.grads.contains(&vector![2.0, 1.0]));
+        assert!(glob_grad.grads.contains(&vector![3.0, 2.0]));
         let final_grad = lvb.calc_final(&glob_grad);
         assert_eq![
             final_grad.to_vector(),
@@ -390,7 +378,7 @@ mod tests {
                 Test::new(vector![3.0, 2.0], vector![0.5]),
             ]),
             layers,
-            &mut XorShiftRng::from_seed([1, 2, 3, 4]),
+            &mut thread_rng(),
         );
         lvb.lambda = 10.0;
         lvb.get_mut_net().set_weights(NetStruct::from_vector(

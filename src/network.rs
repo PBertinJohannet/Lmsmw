@@ -5,10 +5,10 @@
 use rulinalg::vector::Vector;
 use rulinalg::matrix::Matrix;
 use rulinalg::matrix::BaseMatrix;
-use rand::XorShiftRng;
-use example::Test;
-use netstruct::NetStruct;
-use netstruct::NetStructTrait;
+use rand::prelude::ThreadRng;
+use crate::example::Test;
+use crate::netstruct::NetStruct;
+use crate::netstruct::NetStructTrait;
 
 
 #[derive(Debug, Clone, Copy)]
@@ -29,7 +29,8 @@ impl LayerConfig {
             eval_fun: EvalFunc::Sigmoid,
         }
     }
-    fn eval_function(&mut self, func: EvalFunc) -> &mut Self {
+    /// Sets the evaluation function for the given layer
+    pub fn eval_function(&mut self, func: EvalFunc) -> &mut Self {
         self.eval_fun = func;
         self
     }
@@ -88,7 +89,7 @@ pub struct Network {
 
 impl Network {
     /// Creates a new random network with the given randomgenerator and structure.
-    pub fn new(structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
+    pub fn new(structure: Vec<LayerConfig>, my_rand: &mut ThreadRng) -> Self {
         Network {
             num_layers: structure.len(),
             layers: structure.clone(),
@@ -167,7 +168,7 @@ impl Network {
                     from_cost,
                 ))
             })
-            .apply(&|x| x / tests.len() as f64)
+            .apply(&|x| x)
     }
     /// add the given gradient to the network.
     pub fn add_gradient(&mut self, grad: &NetStruct, coef: f64) {
@@ -277,7 +278,7 @@ impl Network {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
+    use rand::thread_rng;
 
     #[test]
     fn sigmoids() {
@@ -295,7 +296,7 @@ mod tests {
 
     #[test]
     fn feed_forward() {
-        let mut net = Network::new(layers![2, 2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers![2, 2, 1], &mut thread_rng());
         net.weights =
             NetStruct::from_vector(&vector![1.0, -1.0, 0.5, -0.5, 1.0, 0.1], &vec![2, 2, 1]);
         assert_eq![
@@ -310,14 +311,14 @@ mod tests {
         for l in 0..layers.len() {
             layers[l].eval_function(EvalFunc::Identity);
         }
-        let mut net = Network::new(layers, &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers, &mut thread_rng());
         net.weights = NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]);
-        assert_eq![net.feed_forward(&vector![1.0, 3.0]), vector![4.0 as f64]];
+        assert_eq![net.feed_forward(&vector![1.0, 3.0]), vector![4.0]];
     }
 
     #[test]
     fn hessian() {
-        let mut net = Network::new(layers![2, 1], &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers![2, 1], &mut thread_rng());
         net.weights = NetStruct::from_vector(&vector![1.0, -1.0], &vec![2, 1]);
         assert_eq![
             net.back_propagation(&vector![0.5, -0.5], &vector![0.6], true)
@@ -350,7 +351,7 @@ mod tests {
         for l in 0..layers.len() {
             layers[l].eval_function(EvalFunc::Identity);
         }
-        let mut net = Network::new(layers, &mut XorShiftRng::from_seed([1, 2, 3, 4]));
+        let mut net = Network::new(layers, &mut thread_rng());
         net.weights = NetStruct::from_vector(&vector![1.0, 1.0], &vec![2, 1]);
         assert_eq![
             net.get_hessian(&vector![1.0, 3.0], &vector![-0.3]),

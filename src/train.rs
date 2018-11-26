@@ -1,20 +1,20 @@
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
-use network::Network;
-use rand::XorShiftRng;
-use network::LayerConfig;
+use crate::network::Network;
+use rand::prelude::ThreadRng;
+use crate::network::LayerConfig;
 use std::cmp::min;
-use example::Test;
+use crate::example::Test;
 
 pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'static>
      {
-    fn verbose(&mut self, bool) -> &mut Self;
+    fn verbose(&mut self, verbose : bool) -> &mut Self;
     fn is_verbose(&mut self) -> bool;
     fn start(&mut self) -> &mut Self;
     fn get_net(&self) -> Network;
     fn get_empty_val(&self) -> T;
-    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self;
+    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut ThreadRng) -> Self;
     fn get_number_of_batches(&self) -> usize;
     fn get_tests<'a>(&'a self) -> &'a Arc<Vec<Test>>;
     fn get_cloned_calculator(&self) -> U;
@@ -94,7 +94,7 @@ pub trait Trainer<T: Send + 'static, U: CoefCalculator<T> + Sync + Send + 'stati
 
 pub trait CoefCalculator<T: Send + 'static> {
     fn calc_result(&self, tests: &[Test]) -> T;
-    fn add_result(&self, &T, &T) -> T;
+    fn add_result(&self, first : &T, second : &T) -> T;
     fn get_net(&self) -> Network;
     fn get_empty_val(&self) -> T;
 }

@@ -1,12 +1,12 @@
 use std::sync::Arc;
-use netstruct::NetStruct;
-use netstruct::NetStructTrait;
-use example::Test;
-use train::Trainer;
-use train::CoefCalculator;
-use network::Network;
-use rand::XorShiftRng;
-use network::LayerConfig;
+use crate::netstruct::NetStruct;
+use crate::netstruct::NetStructTrait;
+use crate::example::Test;
+use crate::train::Trainer;
+use crate::train::CoefCalculator;
+use crate::network::Network;
+use rand::prelude::ThreadRng;
+use crate::network::LayerConfig;
 pub struct BackPropTrainer {
     tests: Arc<Vec<Test>>,
     back_prop_calc: GradientDescentCalculator,
@@ -18,7 +18,7 @@ pub struct BackPropTrainer {
 }
 
 impl Trainer<NetStruct, GradientDescentCalculator> for BackPropTrainer {
-    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut XorShiftRng) -> Self {
+    fn new(tests: Arc<Vec<Test>>, structure: Vec<LayerConfig>, my_rand: &mut ThreadRng) -> Self {
         BackPropTrainer {
             tests: tests,
             back_prop_calc: Network::new(structure, my_rand),

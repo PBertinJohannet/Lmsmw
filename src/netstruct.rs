@@ -1,27 +1,27 @@
 use rulinalg::vector::Vector;
-use rand::XorShiftRng;
-use rand::Rng;
+use rand::prelude::{ThreadRng, Rng};
+use rand::distributions::Normal;
 use std::iter::FromIterator;
 
 
 pub type NetStruct = Vec<Vec<Vector<f64>>>;
 pub trait NetStructTrait {
-    fn random(structure: &Vec<usize>, my_rand: &mut XorShiftRng) -> Self;
+    fn random(structure: &Vec<usize>, my_rand: &mut ThreadRng) -> Self;
     fn apply(&self, fun: &Fn(f64) -> f64) -> Self;
     fn add(&self, other: &Self) -> Self;
     fn to_vector(&self) -> Vector<f64>;
     fn from_vector(source: &Vector<f64>, structure: &Vec<usize>) -> Self;
 }
 impl NetStructTrait for NetStruct {
-    fn random(structure: &Vec<usize>, my_rand: &mut XorShiftRng) -> Self {
+    fn random(structure: &Vec<usize>, my_rand: &mut ThreadRng) -> Self {
         (structure.iter().zip(structure.iter().skip(1)).map(|(&prev,
           &next)| {
             (0..next)
                 .map(|_| {
                     Vector::from(
                         my_rand
-                            .gen_iter::<f64>()
-                            .map(|x| x * 0.2)
+                            .sample_iter(&Normal::new(0.0, 1.0))
+                        //    .map(|x| x * 0.2)
                             .take(prev)
                             .collect::<Vec<f64>>(),
                     )
@@ -88,10 +88,10 @@ impl NetStructTrait for NetStruct {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
+    use rand::thread_rng;
     #[test]
     fn random() {
-        let mut my_rand = XorShiftRng::from_seed([1, 2, 3, 4]);
+        let mut my_rand = thread_rng();
         let s = NetStruct::random(&vec![3, 4, 5, 4, 18, 2], &mut my_rand);
         assert_eq![s[2][0].size(), 5];
         assert_eq![s[4][0].size(), 18];

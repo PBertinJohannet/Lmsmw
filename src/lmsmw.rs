@@ -4,24 +4,15 @@
 //! TODO : document examples
 //!
 
-use sgd::BackPropTrainer;
-use lvbm::LevembergMarquardtTrainer;
-use train::Trainer;
+use crate::sgd::BackPropTrainer;
+use crate::lvbm::LevembergMarquardtTrainer;
+use crate::train::Trainer;
 use std::sync::Arc;
-use network::LayerConfig;
-use network::EvalFunc;
-use network::Network;
-use example::Test;
-use example::GreaterThan;
-use example::Sine;
-use example::Square;
-use example::Hole;
-use example::Triangle;
-use example::Round;
-use example::TrainingData;
+use crate::network::LayerConfig;
+use crate::network::Network;
+use crate::example::Test;
 
-use rand::XorShiftRng;
-use rand::Rng;
+use rand::prelude::thread_rng;
 
 /// Learner
 /// The struct used to train the network
@@ -48,9 +39,7 @@ pub struct Learner {
     net : Option<Network>,
 
 }
-struct AutoGeneratingExampleParameters {
-    empty: (),
-}
+
 /// Configuration for sgd.
 #[derive(Debug)]
 struct BackPropParameters {
@@ -221,8 +210,8 @@ impl Learner {
     /// start the algorithm
     /// will return the Network if the aim score is reached or the maximum number of iterations is exeeded
     pub fn start(&mut self) -> Network {
-        let mut my_rand = XorShiftRng::new_unseeded();
-        let mut net = (self.net.as_mut().unwrap_or(&mut Network::new(self.structure.clone(), &mut my_rand)).clone());
+        let mut my_rand = thread_rng();
+        let mut net : Network = self.net.clone().unwrap_or(Network::new(self.structure.clone(), &mut my_rand).clone());
         //let mut net = my_net.clone();
         let batch_size = usize::max(self.examples.len_tests() / self.lvbm_params.batch_size, 1);
         let tests = &self.examples.get_tests().clone();
@@ -276,7 +265,7 @@ mod tests {
         // Create the network structure
 
 
-        let layers = layers![3, 3, 2]; //  3 input layers, 3 hidden and 2 output layers.
+        let layers = layers![3, 3, 2]; //  3 input neurons, 3 hidden and 2 output neuron.
 
 
 
@@ -289,6 +278,7 @@ mod tests {
             .aim_score(0.005)  // try to go until 0.005 score
             .max_iter(50)       // but if it still diverges everytime stop after 50 algorithm swaps
             .start(); // start learning
+        println!("{}", net.evaluate(&tests_array));
         assert!(net.evaluate(&tests_array) < 0.005)
     }
 }

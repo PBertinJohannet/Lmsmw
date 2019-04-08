@@ -1,6 +1,6 @@
 # lmsmw
 
-Neural network training using levemberg marquardt algorithm with sherman morisson woodburry formula
+Neural network training using levemberg marquardt algorithm with an optimisation using sherman morisson woodburry formula
 
 Implemented entirely in Rust.
 
